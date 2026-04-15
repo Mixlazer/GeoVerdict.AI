@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GeoVerdict</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <style>
+      :root{color-scheme:light;--bg:#f6f1e8;--panel:rgba(255,255,255,.9);--stroke:rgba(74,76,68,.12);--ink:#1d211b;--muted:#667067;--blue:#2162f3;--blue-soft:rgba(33,98,243,.1);--green:#208752;--amber:#bf831a;--red:#bd4f3f;--shadow:0 24px 56px rgba(36,35,26,.1)}
+      *{box-sizing:border-box}body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:radial-gradient(circle at top left,rgba(236,190,96,.22),transparent 28%),radial-gradient(circle at bottom right,rgba(33,98,243,.12),transparent 30%),var(--bg);color:var(--ink)}
+      .shell{max-width:1520px;margin:0 auto;padding:28px}.topbar{display:flex;justify-content:space-between;gap:18px;align-items:flex-end;margin-bottom:18px}.eyebrow{margin:0;text-transform:uppercase;letter-spacing:.14em;font-size:.76rem;color:var(--muted)}h1{margin:8px 0 10px;font-size:clamp(2.2rem,4vw,4.6rem);line-height:.94}.lead{margin:0;max-width:64rem;color:#3f473f}
+      .tabs{display:inline-flex;gap:8px;padding:6px;border-radius:999px;background:rgba(255,255,255,.72);border:1px solid var(--stroke);box-shadow:var(--shadow)}.tab{border:none;padding:11px 16px;border-radius:999px;background:transparent;color:var(--muted);cursor:pointer;font-weight:600}.tab.active{background:#1a1d18;color:#fff}.view{display:none}.view.active{display:block}
+      .grid{display:grid;grid-template-columns:380px minmax(0,1fr);gap:18px}.map-column{display:grid;gap:14px}.panel{background:var(--panel);border:1px solid var(--stroke);border-radius:26px;box-shadow:var(--shadow);backdrop-filter:blur(14px)}.map-panel{min-height:920px;overflow:hidden}#map{height:920px;width:100%}
+      .map-toolbar{display:grid;grid-template-columns:minmax(0,1fr) 190px;gap:12px}.toolbar-card,.legend{background:rgba(255,255,255,.94);border:1px solid var(--stroke);border-radius:18px;padding:12px 14px}.toolbar-card{display:flex;flex-direction:column;gap:10px;width:85%}.legend{display:grid;gap:8px;font-size:.82rem}.legend-row{display:flex;gap:8px;align-items:center}.legend-swatch{width:12px;height:12px;border-radius:50%}
+      .city-select,.auth-input,.business-input,.range-input,textarea,select{width:100%;border-radius:14px;border:1px solid rgba(71,75,67,.14);background:#fff;padding:12px 14px;font:inherit}.toolbar-note,.muted,.building-empty,.history-empty,.result-text,.step-row p{margin:0;color:var(--muted)}
+      .sidebar{display:flex;flex-direction:column;gap:14px}.card,.summary-card,.history-card{padding:18px}.card-title{margin:0 0 12px;text-transform:uppercase;letter-spacing:.08em;font-size:.74rem;color:var(--muted)}.auth-grid,.business-grid,.summary-grid,.building-list,.steps,.history-table-wrap{display:grid;gap:10px}.auth-grid{grid-template-columns:1fr 1fr}.business-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.summary-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+      .auth-mode,.business-chip,.ghost-btn,.primary-btn,.building-btn{border:none;cursor:pointer}.auth-mode,.business-chip,.ghost-btn{background:#f4f4ef;border:1px solid rgba(71,75,67,.1)}.auth-mode,.business-chip,.building-btn{border-radius:14px;padding:11px 12px;font:inherit}.auth-mode.active,.business-chip.active,.building-btn.active{background:var(--blue-soft);border-color:rgba(33,98,243,.35);color:var(--blue)}.primary-btn,.ghost-btn{width:100%;border-radius:16px;padding:14px 16px;font:inherit;font-weight:700}.primary-btn{background:linear-gradient(135deg,#2162f3,#1a45cd);color:#fff}.primary-btn:disabled,.building-btn:disabled{opacity:.55;cursor:not-allowed}
+      .user-badge,.status-badge,.table-badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:8px 12px;font-size:.84rem}.user-badge{background:rgba(32,135,82,.12);color:var(--green)}.status-badge.ok,.table-badge.recommend{background:rgba(32,135,82,.12);color:var(--green)}.status-badge.warn,.table-badge.acceptable{background:rgba(191,131,26,.12);color:var(--amber)}.status-badge.bad,.table-badge.avoid{background:rgba(189,79,63,.12);color:var(--red)}.status-badge.blue{background:rgba(33,98,243,.12);color:var(--blue)}
+      .building-btn{text-align:left;background:#f8f7f2}.building-btn small{display:block;margin-top:6px;color:var(--muted)}.step-row{display:grid;grid-template-columns:14px 1fr;gap:10px}.step-dot{width:12px;height:12px;margin-top:4px;border-radius:50%;background:#d4d8cf}.step-dot.running{background:var(--blue)}.step-dot.done{background:var(--green)}.step-dot.error{background:var(--red)}
+      .verdict-card.positive{background:#ebf8ef}.verdict-card.warning{background:#fff8eb}.verdict-card.danger{background:#fdefeb}.verdict-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-end}.big-score{font-size:3rem;line-height:1;font-weight:800}.metric-list{display:grid;gap:8px;margin-top:14px}.metric-row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid rgba(71,75,67,.08)}.tag{border-radius:14px;padding:10px 12px;font-size:.88rem}.tag.strength{background:rgba(32,135,82,.1);color:var(--green)}.tag.risk{background:rgba(189,79,63,.1);color:var(--red)}
+      .summary-card strong{display:block;font-size:2rem;margin-top:6px}table{width:100%;border-collapse:collapse}th,td{padding:14px 12px;text-align:left;border-bottom:1px solid rgba(71,75,67,.1);vertical-align:top}th{color:var(--muted);font-size:.82rem;text-transform:uppercase;letter-spacing:.06em}.history-table-wrap{overflow:auto}.leaflet-popup-content-wrapper{border-radius:18px}.leaflet-container a.leaflet-popup-close-button{color:var(--ink)}
+      .feedback-section{margin-top:18px}.feedback-wrap{padding:20px;display:grid;gap:12px}.feedback-grid{display:grid;grid-template-columns:220px minmax(0,1fr) 220px;gap:12px;align-items:start}
+      .loading-stack{display:grid;gap:10px;align-items:start}.loading-row{display:flex;gap:10px;align-items:center;color:var(--muted)}.spinner{width:18px;height:18px;border-radius:50%;border:2px solid rgba(33,98,243,.18);border-top-color:var(--blue);animation:spin .9s linear infinite}.soft-pulse{animation:pulse 1.15s ease-in-out infinite}
+      @keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
+      @media (max-width:1220px){.grid{grid-template-columns:1fr}.map-panel,#map{min-height:620px;height:620px}.summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.map-toolbar{grid-template-columns:1fr}.toolbar-card{width:100%}.feedback-grid{grid-template-columns:1fr}}@media (max-width:720px){.shell{padding:18px}.topbar{flex-direction:column;align-items:stretch}.auth-grid,.business-grid,.summary-grid{grid-template-columns:1fr}}
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">GeoVerdict</p>
+          <h1>GeoVerdict</h1>
+          <p class="lead">Выбирайте здание на живой карте города-миллионника, оценивайте пешеходный поток, торговую силу улицы, транспортную доступность и сравнивайте локации в истории аккаунта.</p>
+        </div>
+        <nav class="tabs">
+          <button class="tab active" data-view="analysisView">Новый анализ</button>
+          <button class="tab" data-view="historyView">История мест</button>
+        </nav>
+      </header>
+
+      <section class="view active" id="analysisView">
+        <div class="grid">
+          <aside class="sidebar">
+            <section class="panel card">
+              <p class="card-title">Аккаунт</p>
+              <div id="authContent"></div>
+            </section>
+            <section class="panel card">
+              <p class="card-title">Тип бизнеса</p>
+              <div class="business-grid" id="businessGrid"></div>
+              <div style="margin-top:10px">
+                <input class="business-input" id="customBusinessInput" type="text" placeholder="Или введите свой тип бизнеса, например: зоомагазин" />
+              </div>
+              <div style="margin-top:12px">
+                <button class="primary-btn" id="analyzeBtn" disabled>Анализировать выбранное здание</button>
+              </div>
+              <p class="muted" id="businessHint" style="margin-top:10px">Поиск зданий и запуск анализа доступны только после входа.</p>
+            </section>
+            <section class="panel card">
+              <p class="card-title">Агенты</p>
+              <div class="steps" id="steps"></div>
+            </section>
+            <section class="panel card">
+              <p class="card-title">Выбранное здание</p>
+              <div id="buildingSummary"><p class="building-empty">Пока ничего не выбрано. Войдите и кликните по карте, чтобы подобрать здания.</p></div>
+            </section>
+            <section class="panel card verdict-card" id="verdictCard" style="display:none"></section>
+            <section class="panel card" id="optimizationCard" style="display:none"></section>
+          </aside>
+
+          <section class="map-column">
+            <div class="map-toolbar">
+              <div class="toolbar-card">
+                <strong>Город для анализа</strong>
+                <select class="city-select" id="citySelect"></select>
+                <label class="toolbar-note" for="radiusRange">Радиус сравнения зданий: <strong id="radiusValue">500 м</strong></label>
+                <input class="range-input" id="radiusRange" type="range" min="50" max="1000" step="10" value="500" />
+                <div class="toolbar-note">Кликните по карте, чтобы подобрать ближайшие здания в заданном радиусе и затем запустить анализ конкретного объекта.</div>
+              </div>
+              <div class="legend">
+                <div class="legend-row"><span class="legend-swatch" style="background:#2162f3"></span><span>Точка клика</span></div>
+                <div class="legend-row"><span class="legend-swatch" style="background:#208752"></span><span>Выбранное здание</span></div>
+                <div class="legend-row"><span class="legend-swatch" style="background:#bd4f3f"></span><span>Кандидаты зданий</span></div>
+                <div class="legend-row"><span class="legend-swatch" style="background:#7d4dff"></span><span>Лучшая точка рядом</span></div>
+              </div>
+            </div>
+            <section class="panel map-panel">
+              <div id="map"></div>
+            </section>
+            <section class="panel card">
+              <p class="card-title">Кандидаты рядом</p>
+              <div class="building-list" id="buildingList"><p class="building-empty">После входа и клика по карте здесь появится список зданий для выбора.</p></div>
+            </section>
+          </section>
+        </div>
+
+        <section class="panel feedback-section">
+          <div class="feedback-wrap">
+            <p class="card-title" style="margin-bottom:0">Обратная связь</p>
+            <div class="feedback-grid">
+              <label class="field">
+                <span class="muted">Оценка сервису</span>
+                <input class="business-input" id="feedbackRating" type="number" min="1" max="5" value="5" />
+              </label>
+              <label class="field">
+                <span class="muted">Сообщение</span>
+                <textarea class="business-input" id="feedbackMessage" rows="4" placeholder="Что понравилось или что стоит улучшить в GeoVerdict?"></textarea>
+              </label>
+              <div style="display:grid;gap:10px">
+                <button class="ghost-btn" id="feedbackBtn">Отправить feedback</button>
+                <p class="muted" id="feedbackHint">Поделитесь впечатлением после анализа точки.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section class="view" id="historyView">
+        <div class="summary-grid" id="historySummary"></div>
+        <div style="height:18px"></div>
+        <section class="panel history-card">
+          <p class="card-title">Сравнительная аналитика по сохранённым локациям</p>
+          <div class="history-table-wrap" id="historyTableWrap"><p class="history-empty">Войдите в аккаунт и запустите хотя бы один анализ, чтобы увидеть историю.</p></div>
+        </section>
+      </section>
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script>
+      const PRESET_BUSINESSES = [
+        ["pharmacy", "Аптека"], ["coffee", "Кофейня"], ["fastfood", "Фастфуд"],
+        ["grocery", "Продукты"], ["apparel", "Одежда"], ["services", "Услуги"]
+      ];
+      const CITIES = [
+        { name: "Москва", lat: 55.7558, lng: 37.6173, zoom: 13 },
+        { name: "Санкт-Петербург", lat: 59.9343, lng: 30.3351, zoom: 13 },
+        { name: "Новосибирск", lat: 55.0282, lng: 82.9216, zoom: 13 },
+        { name: "Екатеринбург", lat: 56.8389, lng: 60.6057, zoom: 13 },
+        { name: "Казань", lat: 55.7961, lng: 49.1064, zoom: 13 },
+        { name: "Нижний Новгород", lat: 56.3269, lng: 44.0059, zoom: 13 },
+        { name: "Красноярск", lat: 56.0097, lng: 92.7917, zoom: 13 },
+        { name: "Челябинск", lat: 55.1644, lng: 61.4368, zoom: 13 },
+        { name: "Самара", lat: 53.1959, lng: 50.1002, zoom: 13 },
+        { name: "Уфа", lat: 54.7388, lng: 55.9721, zoom: 13 },
+        { name: "Ростов-на-Дону", lat: 47.2357, lng: 39.7015, zoom: 13 },
+        { name: "Краснодар", lat: 45.0355, lng: 38.9753, zoom: 13 },
+        { name: "Омск", lat: 54.9885, lng: 73.3242, zoom: 13 },
+        { name: "Воронеж", lat: 51.6608, lng: 39.2003, zoom: 13 },
+        { name: "Пермь", lat: 58.0105, lng: 56.2502, zoom: 13 },
+        { name: "Волгоград", lat: 48.708, lng: 44.5133, zoom: 13 }
+      ];
+      const state = {
+        city: CITIES[0],
+        selectedBusiness: PRESET_BUSINESSES[0][0],
+        searchRadius: 500,
+        token: localStorage.getItem("geoverdict_token") || "",
+        user: null,
+        buildingCandidates: [],
+        selectedBuilding: null,
+        clickedAddress: "",
+        lastClick: null,
+        map: null,
+        clickMarker: null,
+        candidateMarkers: [],
+        optimizationMarker: null,
+        isResolvingBuildings: false,
+        isAnalyzing: false
+      };
+      const authContent = document.getElementById("authContent");
+      const citySelect = document.getElementById("citySelect");
+      const businessGrid = document.getElementById("businessGrid");
+      const customBusinessInput = document.getElementById("customBusinessInput");
+      const radiusRange = document.getElementById("radiusRange");
+      const radiusValue = document.getElementById("radiusValue");
+      const buildingSummary = document.getElementById("buildingSummary");
+      const buildingList = document.getElementById("buildingList");
+      const analyzeBtn = document.getElementById("analyzeBtn");
+      const feedbackBtn = document.getElementById("feedbackBtn");
+      const feedbackMessage = document.getElementById("feedbackMessage");
+      const feedbackRating = document.getElementById("feedbackRating");
+      const feedbackHint = document.getElementById("feedbackHint");
+      const businessHint = document.getElementById("businessHint");
+      const steps = document.getElementById("steps");
+      const verdictCard = document.getElementById("verdictCard");
+      const optimizationCard = document.getElementById("optimizationCard");
+      const historySummary = document.getElementById("historySummary");
+      const historyTableWrap = document.getElementById("historyTableWrap");
+      function authHeaders() { return state.token ? { Authorization: `Bearer ${state.token}` } : {}; }
+      async function apiJson(url, options = {}) {
+        const response = await fetch(url, {
+          ...options,
+          headers: { "Content-Type": "application/json", ...(options.headers || {}) }
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({ detail: "Ошибка запроса" }));
+          throw new Error(payload.detail || "Ошибка запроса");
+        }
+        return response.json();
+      }
+      function initMap() {
+        state.map = L.map("map", { zoomControl: true }).setView([state.city.lat, state.city.lng], state.city.zoom);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(state.map);
+        state.map.on("click", async (event) => {
+          if (!state.user) {
+            buildingList.innerHTML = '<p class="building-empty">Сначала войдите в аккаунт, затем можно подбирать здания на карте.</p>';
+            state.clickedAddress = "";
+            state.selectedBuilding = null;
+            renderBuildingSummary();
+            return;
+          }
+          state.lastClick = event.latlng;
+          await refreshBuildingsForCurrentPoint();
+        });
+      }
+      function setClickMarker(lat, lng) {
+        if (!state.clickMarker) {
+          state.clickMarker = L.circleMarker([lat, lng], { radius: 8, color: "#2162f3", weight: 3, fillColor: "#2162f3", fillOpacity: .22 }).addTo(state.map);
+        } else {
+          state.clickMarker.setLatLng([lat, lng]);
+        }
+      }
+      function clearCandidateMarkers() {
+        state.candidateMarkers.forEach((marker) => marker.remove());
+        state.candidateMarkers = [];
+      }
+      function clearOptimizationMarker() {
+        if (state.optimizationMarker) {
+          state.optimizationMarker.remove();
+          state.optimizationMarker = null;
+        }
+      }
+      function renderCandidateMarkers() {
+        clearCandidateMarkers();
+        state.buildingCandidates.forEach((building) => {
+          const active = state.selectedBuilding && state.selectedBuilding.osm_id === building.osm_id;
+          const marker = L.circleMarker([building.lat, building.lng], {
+            radius: active ? 9 : 7,
+            color: active ? "#208752" : "#bd4f3f",
+            weight: 2,
+            fillColor: active ? "#208752" : "#bd4f3f",
+            fillOpacity: .3
+          }).addTo(state.map).bindPopup(`<strong>${building.name}</strong><br>${building.address}<br><small>${Math.round(building.distance_m)} м · ${building.building_type}</small>`);
+          marker.on("click", () => selectBuilding(building, true));
+          state.candidateMarkers.push(marker);
+        });
+      }
+      async function refreshBuildingsForCurrentPoint() {
+        if (!state.lastClick || !state.user) return;
+        state.isResolvingBuildings = true;
+        clearCandidateMarkers();
+        clearOptimizationMarker();
+        verdictCard.style.display = "none";
+        optimizationCard.style.display = "none";
+        setClickMarker(state.lastClick.lat, state.lastClick.lng);
+        renderBuildingCandidates();
+        state.clickedAddress = "Определяем адрес точки...";
+        renderBuildingSummary();
+        try {
+          const addressPromise = apiJson(`/api/v1/geo/reverse?lat=${state.lastClick.lat}&lng=${state.lastClick.lng}`, { headers: authHeaders() });
+          const buildingsPromise = apiJson(`/api/v1/geo/buildings?lat=${state.lastClick.lat}&lng=${state.lastClick.lng}&city=${encodeURIComponent(state.city.name)}&radius=${state.searchRadius}`, { headers: authHeaders() });
+          const [address, buildings] = await Promise.all([addressPromise, buildingsPromise]);
+          state.clickedAddress = address.display_name || `${state.city.name}, Россия`;
+          state.buildingCandidates = buildings;
+          renderBuildingCandidates();
+          if (buildings.length) {
+            selectBuilding(buildings[0], false);
+          } else {
+            state.selectedBuilding = null;
+            renderBuildingSummary();
+          }
+        } catch (error) {
+          state.clickedAddress = `${state.city.name}, ${state.lastClick.lat.toFixed(6)}, ${state.lastClick.lng.toFixed(6)}`;
+          state.selectedBuilding = null;
+          renderBuildingSummary();
+          buildingList.innerHTML = `<p class="building-empty">${error.message}</p>`;
+        } finally {
+          state.isResolvingBuildings = false;
+          renderBuildingSummary();
+          renderBuildingCandidates();
+        }
+      }
+      function renderCities() {
+        citySelect.innerHTML = CITIES.map((city) => `<option value="${city.name}" ${city.name === state.city.name ? "selected" : ""}>${city.name}</option>`).join("");
+      }
+      function renderBusinesses() {
+        businessGrid.innerHTML = PRESET_BUSINESSES.map(([value, label]) => `<button class="business-chip ${state.selectedBusiness === value ? "active" : ""}" data-business="${value}">${label}</button>`).join("");
+        businessGrid.querySelectorAll("[data-business]").forEach((button) => {
+          button.addEventListener("click", () => {
+            state.selectedBusiness = button.dataset.business;
+            renderBusinesses();
+          });
+        });
+      }
+      function renderAuth(mode = "login") {
+        if (state.user) {
+          authContent.innerHTML = `
+            <div style="display:grid;gap:12px">
+              <span class="user-badge">Вошли как ${state.user.full_name || state.user.username}</span>
+              <p class="muted">Поиск зданий, анализ и история теперь сохраняются в ваш профиль.</p>
+              <button class="ghost-btn" id="logoutBtn">Выйти</button>
+            </div>
+          `;
+          document.getElementById("logoutBtn").onclick = () => {
+            localStorage.removeItem("geoverdict_token");
+            state.token = "";
+            state.user = null;
+            state.selectedBuilding = null;
+            state.buildingCandidates = [];
+            state.lastClick = null;
+            clearCandidateMarkers();
+            clearOptimizationMarker();
+            if (state.clickMarker) {
+              state.clickMarker.remove();
+              state.clickMarker = null;
+            }
+            renderAuth();
+            renderHistoryEmpty("Войдите в аккаунт и запустите хотя бы один анализ, чтобы увидеть историю.");
+            buildingList.innerHTML = '<p class="building-empty">После входа и клика по карте здесь появится список зданий для выбора.</p>';
+            renderBuildingSummary();
+            verdictCard.style.display = "none";
+            optimizationCard.style.display = "none";
+          };
+          businessHint.textContent = "Можно использовать шаблонный формат бизнеса или указать свой.";
+          return;
+        }
+        authContent.innerHTML = `
+          <div class="auth-grid">
+            <button class="auth-mode ${mode === "login" ? "active" : ""}" data-mode="login">Вход</button>
+            <button class="auth-mode ${mode === "register" ? "active" : ""}" data-mode="register">Регистрация</button>
+          </div>
+          <div style="height:12px"></div>
+          <div style="display:grid;gap:10px">
+            <input class="auth-input" id="usernameInput" type="text" placeholder="Логин" />
+            ${mode === "register" ? '<input class="auth-input" id="fullNameInput" type="text" placeholder="Имя или компания (необязательно)" />' : ""}
+            <input class="auth-input" id="passwordInput" type="password" placeholder="Пароль" />
+            <button class="primary-btn" id="authSubmitBtn">${mode === "login" ? "Войти" : "Создать аккаунт"}</button>
+            <p class="muted" id="authHint">Без входа поиск зданий и запуск анализа недоступны.</p>
+          </div>
+        `;
+        authContent.querySelectorAll("[data-mode]").forEach((button) => button.addEventListener("click", () => renderAuth(button.dataset.mode)));
+        document.getElementById("authSubmitBtn").onclick = async () => {
+          const username = document.getElementById("usernameInput").value.trim();
+          const password = document.getElementById("passwordInput").value.trim();
+          const fullNameInput = document.getElementById("fullNameInput");
+          if (!username || !password) {
+            document.getElementById("authHint").textContent = "Укажите логин и пароль.";
+            return;
+          }
+          try {
+            const payload = mode === "login" ? { username, password } : { username, password, full_name: fullNameInput ? fullNameInput.value.trim() : "" };
+            const session = await apiJson(`/api/v1/auth/${mode === "login" ? "login" : "register"}`, { method: "POST", body: JSON.stringify(payload) });
+            state.token = session.token;
+            localStorage.setItem("geoverdict_token", session.token);
+            await loadCurrentUser();
+            renderAuth();
+            await loadHistory();
+          } catch (error) {
+            document.getElementById("authHint").textContent = error.message;
+          }
+        };
+        businessHint.textContent = "Сначала войдите в аккаунт, затем можно запускать поиск зданий и анализ.";
+      }
+      function buildingTitle(building) {
+        return building.address || building.name || "Здание без точного адреса";
+      }
+      function buildingMeta(building) {
+        const bits = [building.building_type || "Здание"];
+        if (building.year_built) bits.push(`год постройки: ${building.year_built}`);
+        if (building.levels) bits.push(`этажей: ${building.levels}`);
+        return bits.join(" · ");
+      }
+      function renderBuildingSummary() {
+        if (!state.selectedBuilding) {
+          buildingSummary.innerHTML = `
+            <div style="display:grid;gap:10px">
+              ${state.isResolvingBuildings ? '<div class="loading-stack"><div class="loading-row"><span class="spinner"></span><strong>Определяем адрес и окружающие здания</strong></div><p class="muted soft-pulse">Собираем ближайшие объекты вокруг точки клика и уточняем адреса.</p></div>' : ""}
+              <p class="building-empty">${state.user ? "Пока ничего не выбрано. Кликните по карте, и мы покажем ближайшие здания." : "Войдите, чтобы включить поиск зданий на карте."}</p>
+              ${state.clickedAddress ? `<p class="muted">Адрес точки клика: ${state.clickedAddress}</p>` : ""}
+            </div>
+          `;
+          analyzeBtn.disabled = true;
+          return;
+        }
+        const building = state.selectedBuilding;
+        buildingSummary.innerHTML = `
+          <div style="display:grid;gap:10px">
+            ${state.isAnalyzing ? '<div class="loading-row"><span class="spinner"></span><strong>Идёт аналитика по выбранному зданию</strong></div>' : ""}
+            <strong>${buildingTitle(building)}</strong>
+            <p class="muted">${buildingMeta(building)}</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <span class="status-badge ok">${Math.round(building.distance_m)} м от точки клика</span>
+              <span class="status-badge blue">${building.building_type}</span>
+            </div>
+            ${state.clickedAddress ? `<p class="muted">Адрес точки клика: ${state.clickedAddress}</p>` : ""}
+            <p class="muted">Координаты здания: ${building.lat.toFixed(6)}, ${building.lng.toFixed(6)}</p>
+          </div>
+        `;
+        analyzeBtn.disabled = !state.user;
+      }
+      function renderBuildingCandidates() {
+        if (state.isResolvingBuildings) {
+          buildingList.innerHTML = `
+            <div class="loading-stack">
+              <div class="loading-row"><span class="spinner"></span><strong>Подбираем ближайшие здания</strong></div>
+              <p class="muted soft-pulse">Сверяем адрес точки, контур застройки и ближайшие кандидаты для анализа.</p>
+            </div>
+          `;
+          return;
+        }
+        if (!state.buildingCandidates.length) {
+          buildingList.innerHTML = '<p class="building-empty">Здания рядом не найдены. Попробуйте кликнуть чуть ближе к уличной застройке.</p>';
+          return;
+        }
+        buildingList.innerHTML = state.buildingCandidates.map((building) => `
+          <button class="building-btn ${state.selectedBuilding && state.selectedBuilding.osm_id === building.osm_id ? "active" : ""}" data-building-id="${building.osm_id}" ${state.isAnalyzing ? "disabled" : ""}>
+            <strong>${buildingTitle(building)}</strong>
+            <small>${buildingMeta(building)}</small>
+            <small>${Math.round(building.distance_m)} м · ${building.lat.toFixed(6)}, ${building.lng.toFixed(6)}</small>
+          </button>
+        `).join("");
+        buildingList.querySelectorAll("[data-building-id]").forEach((button) => {
+          button.addEventListener("click", () => {
+            const building = state.buildingCandidates.find((item) => item.osm_id === button.dataset.buildingId);
+            if (building) {
+              selectBuilding(building, true);
+            }
+          });
+        });
+        renderCandidateMarkers();
+      }
+      function selectBuilding(building, openPopup) {
+        state.selectedBuilding = building;
+        renderBuildingSummary();
+        renderBuildingCandidates();
+        const marker = state.candidateMarkers.find((item) => {
+          const latlng = item.getLatLng();
+          return latlng.lat === building.lat && latlng.lng === building.lng;
+        });
+        if (marker && openPopup) {
+          marker.openPopup();
+        }
+      }
+      function renderSteps(items) {
+        if (!items.length) {
+          steps.innerHTML = '<p class="muted">Шаги появятся после старта анализа.</p>';
+          return;
+        }
+        steps.innerHTML = items.map((step) => `
+          <div class="step-row">
+            <span class="step-dot ${step.status}"></span>
+            <div><strong>${step.label}</strong><p>${step.detail || "Ожидает запуска"}</p></div>
+          </div>
+        `).join("");
+      }
+      function renderVerdict(result, requestId) {
+        const tone = result.verdict === "recommend" ? "positive" : result.verdict === "acceptable" ? "warning" : "danger";
+        const label = result.verdict === "recommend" ? "Рекомендуем" : result.verdict === "acceptable" ? "Допустимо" : "Не рекомендуем";
+        const score = result.score;
+        verdictCard.className = `panel card verdict-card ${tone}`;
+        verdictCard.style.display = "block";
+        verdictCard.innerHTML = `
+          <div class="verdict-head">
+            <div><p style="margin:0 0 6px"><strong>${label}</strong></p><p class="muted">Уверенность ${Math.round(score.confidence * 100)}%</p></div>
+            <div class="big-score">${Math.round(score.overall_score)}</div>
+          </div>
+          <div class="metric-list">
+            <div class="metric-row"><span>Пешеходный поток</span><strong>${score.pedestrian_flow_score}/10</strong></div>
+            <div class="metric-row"><span>Транспортная доступность</span><strong>${score.transport_access_score}/10</strong></div>
+            <div class="metric-row"><span>Торговая сила улицы</span><strong>${score.street_retail_score}/10</strong></div>
+            <div class="metric-row"><span>Район</span><strong>${score.neighborhood_type || "—"}</strong></div>
+            <div class="metric-row"><span>Видимость</span><strong>${Math.round(score.visibility_score)}</strong></div>
+            <div class="metric-row"><span>Инфраструктура</span><strong>${Math.round(score.infrastructure_score)}</strong></div>
+          </div>
+          <div class="metric-list">
+            ${(result.street_insight && result.street_insight.street_name) ? `<div class="metric-row"><span>Улица</span><strong>${result.street_insight.street_name}</strong></div>` : ""}
+            ${result.building_insight ? `<div class="metric-row"><span>Состояние здания</span><span>${result.building_insight.condition_summary || "нет данных"}</span></div>` : ""}
+          </div>
+          ${result.street_insight && result.street_insight.source_facts && result.street_insight.source_facts.length ? `<div style="display:grid;gap:8px;margin-top:10px">${result.street_insight.source_facts.slice(0,2).map((item) => `<div class="tag strength">${item}</div>`).join("")}</div>` : ""}
+          ${result.competitors && result.competitors.length ? `<div style="display:grid;gap:8px;margin-top:10px"><strong>Конкуренты рядом</strong>${result.competitors.slice(0,3).map((item) => `<div class="tag risk">${item.name}${item.address ? ` · ${item.address}` : ""}</div>`).join("")}</div>` : ""}
+          <div>${score.key_strengths.map((item) => `<div class="tag strength">${item}</div>`).join("")}</div>
+          <div style="display:grid;gap:8px;margin-top:10px">${score.key_risks.map((item) => `<div class="tag risk">${item}</div>`).join("")}</div>
+          <div style="margin-top:14px"><a href="/api/v1/analysis/${requestId}" target="_blank" rel="noreferrer">Открыть JSON-результат</a></div>
+        `;
+        clearOptimizationMarker();
+        if (result.optimization) {
+          optimizationCard.style.display = "block";
+          optimizationCard.innerHTML = `
+            <p class="card-title">Лучшая точка рядом</p>
+            <strong>+${result.optimization.improvement_percent}% к потенциалу</strong>
+            <p class="result-text" style="margin-top:8px">${result.optimization.distance_meters} м · ${result.optimization.reason}</p>
+            <p class="muted" style="margin-top:8px">Адрес: ${result.optimization.address || "адрес пока не найден"}</p>
+          `;
+          state.optimizationMarker = L.circleMarker([result.optimization.lat, result.optimization.lng], {
+            radius: 10,
+            color: "#7d4dff",
+            weight: 3,
+            fillColor: "#7d4dff",
+            fillOpacity: .24
+          }).addTo(state.map).bindPopup(`<strong>Лучшая точка рядом</strong><br>${result.optimization.address || "Адрес уточняется"}<br><small>${result.optimization.reason}</small>`);
+        } else {
+          optimizationCard.style.display = "block";
+          optimizationCard.innerHTML = `
+            <p class="card-title">Лучшая точка рядом</p>
+            <strong>Надёжного улучшения в выбранном радиусе не найдено</strong>
+            <p class="muted" style="margin-top:8px">Сканирование не нашло соседнего здания с достаточно убедимым выигрышем по потоку, видимости и уличному фронту. Это не означает, что улучшения точно нет, а только что система не увидела его достаточно уверенно.</p>
+          `;
+        }
+      }
+      function currentBusinessType() {
+        const custom = customBusinessInput.value.trim();
+        return custom || state.selectedBusiness;
+      }
+      async function startAnalysis() {
+        if (!state.user) {
+          businessHint.textContent = "Сначала войдите в аккаунт.";
+          return;
+        }
+        if (!state.selectedBuilding) return;
+        state.isAnalyzing = true;
+        analyzeBtn.disabled = true;
+        analyzeBtn.textContent = "Анализируем...";
+        verdictCard.style.display = "none";
+        optimizationCard.style.display = "none";
+        clearOptimizationMarker();
+        renderBuildingSummary();
+        renderBuildingCandidates();
+        try {
+          const created = await apiJson("/api/v1/analysis/analyze", {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({
+              lat: state.selectedBuilding.lat,
+              lng: state.selectedBuilding.lng,
+              city: state.city.name,
+              business_type: currentBusinessType(),
+              comparison_radius_m: state.searchRadius,
+              selected_building_id: state.selectedBuilding.osm_id,
+              selected_building_name: state.selectedBuilding.name,
+              selected_building_address: state.selectedBuilding.address,
+              selected_building_type: state.selectedBuilding.building_type
+            })
+          });
+          const timer = setInterval(async () => {
+            const current = await apiJson(`/api/v1/analysis/${created.request_id}`);
+            renderSteps((current.result || {}).steps || []);
+            if (current.status !== "processing") {
+              clearInterval(timer);
+              if (current.result) renderVerdict(current.result, created.request_id);
+              state.isAnalyzing = false;
+              analyzeBtn.disabled = false;
+              analyzeBtn.textContent = "Анализировать выбранное здание";
+              renderBuildingSummary();
+              renderBuildingCandidates();
+              if (state.user) await loadHistory();
+            }
+          }, 1200);
+        } catch (error) {
+          state.isAnalyzing = false;
+          analyzeBtn.disabled = false;
+          analyzeBtn.textContent = "Анализировать выбранное здание";
+          renderBuildingSummary();
+          renderBuildingCandidates();
+          businessHint.textContent = error.message;
+        }
+      }
+      async function loadCurrentUser() {
+        if (!state.token) {
+          state.user = null;
+          return;
+        }
+        try {
+          state.user = await apiJson("/api/v1/auth/me", { headers: authHeaders() });
+        } catch {
+          localStorage.removeItem("geoverdict_token");
+          state.token = "";
+          state.user = null;
+        }
+      }
+      function renderHistoryEmpty(text) {
+        historySummary.innerHTML = "";
+        historyTableWrap.innerHTML = `<p class="history-empty">${text}</p>`;
+      }
+      async function loadHistory() {
+        if (!state.user) {
+          renderHistoryEmpty("Войдите в аккаунт и запустите хотя бы один анализ, чтобы увидеть историю.");
+          return;
+        }
+        try {
+          const history = await apiJson("/api/v1/history/comparison", { headers: authHeaders() });
+          historySummary.innerHTML = `
+            <section class="panel summary-card"><span class="muted">Всего анализов</span><strong>${history.summary.total_analyses}</strong></section>
+            <section class="panel summary-card"><span class="muted">Средний score</span><strong>${history.summary.average_score}</strong></section>
+            <section class="panel summary-card"><span class="muted">Рекомендуем</span><strong>${history.summary.recommend_count}</strong></section>
+            <section class="panel summary-card"><span class="muted">Допустимо / не рекомендуем</span><strong>${history.summary.acceptable_count + history.summary.avoid_count}</strong></section>
+          `;
+          if (!history.items.length) {
+            historyTableWrap.innerHTML = '<p class="history-empty">История пока пуста. Проведите первый анализ, и здесь появится сравнительная таблица.</p>';
+            return;
+          }
+          historyTableWrap.innerHTML = `
+            <table>
+              <thead>
+                <tr><th>Дата</th><th>Город</th><th>Здание</th><th>Категория</th><th>Бизнес</th><th>Район</th><th>Score</th><th>Вердикт</th><th>Поток</th><th>Уверенность</th></tr>
+              </thead>
+              <tbody>
+                ${history.items.map((item) => `
+                  <tr>
+                    <td>${new Date(item.created_at).toLocaleString("ru-RU")}</td>
+                    <td>${item.city}</td>
+                    <td><strong>${item.selected_building_name || "Точка на карте"}</strong><div class="muted">${item.selected_building_address || ""}</div></td>
+                    <td>${item.selected_building_type || "—"}</td>
+                    <td>${item.business_type}</td>
+                    <td>${item.neighborhood_type || "—"}</td>
+                    <td>${item.overall_score ?? "—"}</td>
+                    <td><span class="table-badge ${item.verdict || "acceptable"}">${item.verdict || "—"}</span></td>
+                    <td>${item.foot_traffic_estimate || "—"}</td>
+                    <td>${item.confidence != null ? `${Math.round(item.confidence * 100)}%` : "—"}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          `;
+        } catch (error) {
+          renderHistoryEmpty(error.message);
+        }
+      }
+      function activateTab(viewId) {
+        document.querySelectorAll(".view").forEach((view) => view.classList.toggle("active", view.id === viewId));
+        document.querySelectorAll(".tab").forEach((button) => button.classList.toggle("active", button.dataset.view === viewId));
+        if (viewId === "analysisView" && state.map) {
+          setTimeout(() => state.map.invalidateSize(), 120);
+        }
+        if (viewId === "historyView") loadHistory();
+      }
+      function bindEvents() {
+        document.querySelectorAll(".tab").forEach((button) => button.addEventListener("click", () => activateTab(button.dataset.view)));
+        citySelect.addEventListener("change", () => {
+          state.city = CITIES.find((city) => city.name === citySelect.value) || CITIES[0];
+          state.map.setView([state.city.lat, state.city.lng], state.city.zoom);
+          state.buildingCandidates = [];
+          state.selectedBuilding = null;
+          state.clickedAddress = "";
+          state.lastClick = null;
+          clearCandidateMarkers();
+          clearOptimizationMarker();
+          if (state.clickMarker) {
+            state.clickMarker.remove();
+            state.clickMarker = null;
+          }
+          buildingList.innerHTML = `<p class="building-empty">${state.user ? "После клика по карте здесь появится список зданий для выбора." : "Сначала войдите в аккаунт, затем можно искать здания."}</p>`;
+          renderBuildingSummary();
+        });
+        radiusRange.addEventListener("input", async () => {
+          state.searchRadius = Number(radiusRange.value);
+          radiusValue.textContent = `${state.searchRadius} м`;
+          if (state.lastClick && state.user) {
+            await refreshBuildingsForCurrentPoint();
+          }
+        });
+        analyzeBtn.addEventListener("click", startAnalysis);
+        feedbackBtn.addEventListener("click", async () => {
+          const message = feedbackMessage.value.trim();
+          if (!message) {
+            feedbackHint.textContent = "Напишите сообщение перед отправкой.";
+            return;
+          }
+          try {
+            await apiJson("/api/v1/feedback", {
+              method: "POST",
+              headers: authHeaders(),
+              body: JSON.stringify({
+                request_id: null,
+                message,
+                rating: Number(feedbackRating.value || 5),
+              }),
+            });
+            feedbackMessage.value = "";
+            feedbackHint.textContent = "Спасибо, feedback сохранён.";
+          } catch (error) {
+            feedbackHint.textContent = error.message;
+          }
+        });
+      }
+      async function bootstrap() {
+        renderCities();
+        renderBusinesses();
+        renderAuth();
+        renderSteps([]);
+        radiusValue.textContent = `${state.searchRadius} м`;
+        renderBuildingSummary();
+        initMap();
+        window.addEventListener("resize", () => state.map && state.map.invalidateSize());
+        bindEvents();
+        await loadCurrentUser();
+        renderAuth();
+        if (state.user) {
+          await loadHistory();
+        }
+      }
+      bootstrap();
+    </script>
+  </body>
+</html>

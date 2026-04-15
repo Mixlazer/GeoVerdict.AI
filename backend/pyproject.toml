@@ -1,0 +1,24 @@
+[project]
+name = "geoverdict-backend"
+version = "0.1.0"
+description = "GeoVerdict.AI backend"
+requires-python = ">=3.12"
+dependencies = [
+  "aiosqlite>=0.21.0",
+  "fastapi>=0.115.0",
+  "httpx>=0.28.0",
+  "langfuse>=3.2.0",
+  "langgraph>=0.6.0",
+  "langsmith>=0.4.0",
+  "prometheus-client>=0.22.0",
+  "pydantic-settings>=2.6.0",
+  "sqlalchemy>=2.0.36",
+  "uvicorn[standard]>=0.32.0",
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]

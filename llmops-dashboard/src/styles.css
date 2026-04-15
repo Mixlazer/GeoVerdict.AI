@@ -1,0 +1,216 @@
+:root {
+  color-scheme: dark;
+  --bg: #0f1117;
+  --panel: #181c25;
+  --stroke: #2a3040;
+  --text: #edf1ff;
+  --muted: #97a1bc;
+  --blue: #5ba2ff;
+  --green: #28c177;
+  --red: #f05d5e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(91, 162, 255, 0.12), transparent 25%),
+    radial-gradient(circle at bottom right, rgba(40, 193, 119, 0.1), transparent 24%),
+    var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+button {
+  font: inherit;
+}
+
+.ops-layout {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+}
+
+.ops-sidebar {
+  padding: 22px 16px;
+  border-right: 1px solid var(--stroke);
+  background: rgba(16, 20, 28, 0.92);
+}
+
+.ops-logo {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.logo-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--blue);
+}
+
+.ops-logo p,
+.provider-card p,
+.trace-card p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.nav-item {
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.nav-item.active {
+  background: rgba(91, 162, 255, 0.12);
+  border-color: rgba(91, 162, 255, 0.25);
+  color: var(--text);
+}
+
+.ops-main {
+  padding: 28px;
+}
+
+.ops-topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: end;
+  margin-bottom: 22px;
+}
+
+.ops-eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.ops-topbar h1,
+.ops-card h2 {
+  margin: 6px 0 0;
+}
+
+.status-pill,
+.health {
+  border-radius: 999px;
+}
+
+.status-pill {
+  padding: 10px 14px;
+  background: rgba(91, 162, 255, 0.12);
+  color: var(--blue);
+}
+
+.metric-grid,
+.provider-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.metric-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 18px;
+}
+
+.metric-card,
+.ops-card,
+.provider-card,
+.trace-card {
+  border: 1px solid var(--stroke);
+  background: rgba(24, 28, 37, 0.94);
+  border-radius: 22px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.28);
+}
+
+.metric-card {
+  padding: 18px;
+}
+
+.metric-card span {
+  display: block;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.metric-card strong {
+  font-size: 1.9rem;
+}
+
+.ops-card {
+  padding: 18px;
+}
+
+.provider-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.provider-card,
+.trace-card {
+  padding: 16px;
+}
+
+.provider-title,
+.trace-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.health {
+  padding: 5px 10px;
+  font-size: 0.8rem;
+}
+
+.health.ok {
+  background: rgba(40, 193, 119, 0.14);
+  color: var(--green);
+}
+
+.health.bad {
+  background: rgba(240, 93, 94, 0.14);
+  color: var(--red);
+}
+
+.ops-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ops-table th,
+.ops-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--stroke);
+  text-align: left;
+}
+
+.trace-list {
+  display: grid;
+  gap: 12px;
+}
+
+@media (max-width: 1000px) {
+  .ops-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-grid,
+  .provider-grid {
+    grid-template-columns: 1fr;
+  }
+}

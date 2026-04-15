@@ -1,0 +1,9 @@
+.git
+.gitignore
+**/__pycache__
+**/.pytest_cache
+**/node_modules
+**/.next
+**/dist
+*.pyc
+geoverdict.db

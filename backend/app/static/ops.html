@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GeoVerdict LLMOps</title>
+    <style>
+      :root{color-scheme:dark;--bg:#0f1117;--panel:#181c25;--stroke:#2a3040;--text:#edf1ff;--muted:#97a1bc;--blue:#5ba2ff;--green:#28c177;--red:#f05d5e;--amber:#efbd49}
+      *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at top left,rgba(91,162,255,.12),transparent 25%),radial-gradient(circle at bottom right,rgba(40,193,119,.1),transparent 24%),var(--bg);color:var(--text);font-family:"Segoe UI",system-ui,sans-serif}
+      .layout{min-height:100vh;display:grid;grid-template-columns:300px 1fr}.sidebar{padding:22px 16px;border-right:1px solid var(--stroke);background:rgba(16,20,28,.92)}.main{padding:28px}.logo{display:flex;gap:10px;align-items:center;margin-bottom:24px}.dot{width:12px;height:12px;border-radius:50%;background:var(--blue)}
+      .nav{display:grid;gap:8px}.nav-btn{width:100%;padding:12px 14px;border-radius:16px;border:1px solid transparent;background:transparent;color:var(--muted);text-align:left;cursor:pointer}.nav-btn.active{background:rgba(91,162,255,.12);border-color:rgba(91,162,255,.24);color:var(--text)}
+      .topbar{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:22px}.eyebrow{margin:0;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-size:.76rem}.pill,.health,.badge{border-radius:999px}.pill{padding:10px 14px;background:rgba(91,162,255,.12);color:var(--blue)}
+      .metric-grid,.provider-grid,.cards,.config-grid{display:grid;gap:14px}.metric-grid{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:18px}.provider-grid,.config-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.metric-card,.card,.provider,.trace{border:1px solid var(--stroke);background:rgba(24,28,37,.94);border-radius:22px;box-shadow:0 20px 45px rgba(0,0,0,.28);padding:18px}.metric-card span{display:block;color:var(--muted);margin-bottom:8px}.metric-card strong{font-size:1.9rem}
+      .provider-head,.trace-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.health.ok,.badge.ok{background:rgba(40,193,119,.14);color:var(--green)}.health.bad,.badge.bad{background:rgba(240,93,94,.14);color:var(--red)}.badge.warn{background:rgba(239,189,73,.12);color:var(--amber)}.health,.badge{padding:5px 10px;font-size:.8rem}
+      .view{display:none}.view.active{display:block}table{width:100%;border-collapse:collapse}th,td{padding:12px;border-bottom:1px solid var(--stroke);text-align:left;vertical-align:top}th{color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.06em}.traces{display:grid;gap:12px}.muted{color:var(--muted);margin:0}.cards{grid-template-columns:repeat(3,minmax(0,1fr))}
+      .config-card{display:grid;gap:10px}.field{display:grid;gap:6px}.field input,.field select{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--stroke);background:#10131b;color:var(--text)}.field select[multiple]{min-height:120px}.row{display:flex;gap:10px;align-items:center;justify-content:space-between}.save-btn,.add-btn{margin-top:14px;border:none;border-radius:14px;padding:12px 14px;background:rgba(91,162,255,.16);color:var(--text);cursor:pointer;font-weight:700}.add-btn{background:rgba(40,193,119,.16)}
+      .metric-title{display:flex;gap:8px;align-items:center}.hint{position:relative;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;width:18px;height:18px;line-height:1;border-radius:50%;background:rgba(151,161,188,.18);color:var(--text);font-size:.75rem;font-weight:700;cursor:help;flex:0 0 18px;text-align:center}.hint:hover::after{content:attr(data-tip);position:absolute;left:24px;top:50%;transform:translateY(-50%);min-width:220px;max-width:280px;padding:10px 12px;border-radius:12px;background:#0d1017;border:1px solid var(--stroke);color:var(--text);font-size:.78rem;line-height:1.35;white-space:normal;z-index:20}
+      .chart{width:100%;height:240px;border-radius:18px;background:#11151d;padding:12px}.feedback-list,.external-links,.legend-list{display:grid;gap:12px}.external-links a{display:block;padding:10px 12px;border-radius:12px;background:rgba(91,162,255,.12);color:var(--text);text-decoration:none}.legend-list{margin-top:12px}
+      @media (max-width:1000px){.layout{grid-template-columns:1fr}.metric-grid,.provider-grid,.cards{grid-template-columns:1fr}}
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="logo"><span class="dot"></span><div><strong>GeoVerdict</strong><p class="muted" style="margin-top:4px">Панель LLMOps</p></div></div>
+        <div class="nav">
+          <button class="nav-btn active" data-view="overviewView">Обзор</button>
+          <button class="nav-btn" data-view="providersView">Провайдеры</button>
+          <button class="nav-btn" data-view="agentsView">Агенты</button>
+          <button class="nav-btn" data-view="qualityView">Качество</button>
+          <button class="nav-btn" data-view="costsView">Затраты</button>
+          <button class="nav-btn" data-view="chartsView">Графики</button>
+          <button class="nav-btn" data-view="tracesView">Трейсы</button>
+          <button class="nav-btn" data-view="feedbackView">Обратная связь</button>
+        </div>
+        <div style="height:18px"></div>
+        <div class="external-links">
+          <a href="/grafana" target="_blank" rel="noreferrer">Открыть Grafana</a>
+          <a href="/prometheus" target="_blank" rel="noreferrer">Открыть Prometheus</a>
+        </div>
+      </aside>
+      <main class="main">
+        <div class="topbar">
+          <div><p class="eyebrow">GeoVerdict runtime</p><h1 id="pageTitle" style="margin:8px 0 0">Обзор</h1></div>
+          <div class="pill" id="providersCount">Активных провайдеров: 0</div>
+        </div>
+
+        <section class="view active" id="overviewView">
+          <div class="metric-grid" id="metrics"></div>
+          <div class="cards" id="llmMetrics"></div>
+        </section>
+
+        <section class="view" id="providersView">
+          <div class="card"><h2>Статус провайдеров</h2><div class="provider-grid" id="providers"></div></div>
+          <div style="height:14px"></div>
+          <div class="card">
+            <h2>Конфигурация runtime</h2>
+            <p class="muted" style="margin:0 0 14px">Можно включить провайдер, указать модель, базовый URL и API-ключ. Конфиг сохраняется в локальный runtime-файл backend и переживает перезапуск сервиса.</p>
+            <div class="config-grid" id="providerConfig"></div>
+            <button class="add-btn" id="addProviderBtn">+ Добавить провайдера</button>
+            <button class="save-btn" id="saveRuntimeBtn">Сохранить конфигурацию</button>
+          </div>
+        </section>
+
+        <section class="view" id="agentsView">
+          <div class="card"><h2>Метрики агентов</h2><table><thead><tr><th>Агент</th><th>Успешность</th><th>Средняя latency</th><th>Завершено</th><th>Ошибки</th></tr></thead><tbody id="agents"></tbody></table></div>
+          <div style="height:14px"></div>
+          <div class="card">
+            <h2>Runtime по агентам и fallback</h2>
+            <p class="muted" style="margin:0 0 14px">Для каждого агента задаются основной провайдер, отдельный fallback-порядок и model override. Если провайдер недоступен, агент пойдёт по выбранной цепочке сверху вниз.</p>
+            <div class="config-grid" id="agentRuntimeConfig"></div>
+            <button class="save-btn" id="saveAgentRuntimeBtn">Сохранить конфигурацию агентов</button>
+          </div>
+        </section>
+
+        <section class="view" id="qualityView">
+          <div class="cards" id="qualityCards"></div>
+        </section>
+
+        <section class="view" id="costsView">
+          <div class="card"><h2>Разбивка затрат по компонентам</h2><table><thead><tr><th>Компонент</th><th>Сумма</th><th>Доля</th></tr></thead><tbody id="costs"></tbody></table></div>
+          <div style="height:14px"></div>
+          <div class="card"><h2>Разбивка затрат по агентам</h2><table><thead><tr><th>Агент</th><th>Сумма</th><th>Доля</th></tr></thead><tbody id="costsByAgent"></tbody></table></div>
+          <div style="height:14px"></div>
+          <div class="card"><h2>Разбивка затрат по пользователям</h2><table><thead><tr><th>Пользователь</th><th>Сумма</th><th>Доля</th></tr></thead><tbody id="costsByUser"></tbody></table></div>
+        </section>
+
+        <section class="view" id="chartsView">
+          <div class="cards">
+            <div class="card"><h2>Нагрузка на систему</h2><svg class="chart" id="loadChart" viewBox="0 0 640 240"></svg></div>
+            <div class="card"><h2>Расход средств</h2><svg class="chart" id="costChart" viewBox="0 0 640 240"></svg></div>
+            <div class="card"><h2>Latency по времени</h2><svg class="chart" id="latencyChart" viewBox="0 0 640 240"></svg><div class="legend-list"><span class="muted">Синий: p50</span><span class="muted">Жёлтый: p95</span><span class="muted">Красный: p99</span></div></div>
+          </div>
+        </section>
+
+        <section class="view" id="tracesView">
+          <div class="card"><h2>Последние трейсы</h2><div class="traces" id="traces"></div></div>
+        </section>
+
+        <section class="view" id="feedbackView">
+          <div class="card"><h2>Сообщения обратной связи из GeoVerdict</h2><div class="feedback-list" id="feedbackList"></div></div>
+        </section>
+      </main>
+    </div>
+    <script>
+      const token = "geoverdict-ops-secret";
+      const headers = { "X-Ops-Token": token };
+      const runtimeState = { providerOptions: [], providers: [], agents: [] };
+      const titles = {
+        overviewView: "Обзор",
+        providersView: "Провайдеры",
+        agentsView: "Агенты",
+        qualityView: "Качество",
+        costsView: "Затраты",
+        chartsView: "Графики",
+        tracesView: "Трейсы",
+        feedbackView: "Обратная связь"
+      };
+      const metricTips = {
+        totalRequests: "Сколько запросов на анализ всего прошло через систему за текущую историю PoC.",
+        completedRequests: "Сколько анализов дошло до финального статуса completed без критической ошибки пайплайна.",
+        avgScore: "Средняя итоговая оценка привлекательности локаций по завершённым анализам.",
+        recommendShare: "Доля завершённых кейсов, где система выдала вердикт recommend.",
+        avgLatency: "Среднее полное время выполнения анализа от запуска до финального ответа.",
+        totalCost: "Оценка суммарной стоимости LLM/эвристических вычислений по завершённым анализам.",
+        totalTokens: "Среднее суммарное число входных и выходных токенов на один completed-анализ.",
+        generationLatency: "Среднее время генерации ответа LLM-аналитика без учёта всей геологики.",
+        retryRate: "Доля вызовов, где генерацию пришлось повторять из-за ошибки или fallback-сценария.",
+        avgRetryCount: "Среднее число повторных попыток генерации на completed-анализ.",
+        toolCalls: "Среднее число tool-like шагов и агентных подзадач на один анализ.",
+        toolErrorRate: "Доля tool-вызовов, закончившихся ошибкой.",
+        fallbackRate: "Доля анализов, где часть вывода строилась на fallback-данных вместо live-источника.",
+        providerCalls: "Среднее число LLM-вызовов на completed-анализ.",
+        liveProviderCalls: "Среднее число вызовов реальных провайдеров, а не mock-режима.",
+        completionRate: "Доля запросов, которые доходят до финального завершения и не ломаются посередине."
+      };
+      async function getJson(url) {
+        const response = await fetch(url, { headers });
+        if (!response.ok) throw new Error("Не удалось загрузить данные");
+        return response.json();
+      }
+      async function postJson(url, body) {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        if (!response.ok) throw new Error("Не удалось сохранить данные");
+        return response.json();
+      }
+      function withHint(label, tipKey) {
+        return `<span class="metric-title">${label}<span class="hint" data-tip="${metricTips[tipKey]}">?</span></span>`;
+      }
+      function formatCost(value, activeProviders) {
+        if (!value && activeProviders > 0) return "н/д";
+        return `$${Number(value || 0).toFixed(3)}`;
+      }
+      function renderProviderOptions(selectedValue) {
+        return runtimeState.providerOptions.map((option) => `<option value="${option}" ${option === selectedValue ? "selected" : ""}>${option}</option>`).join("");
+      }
+      function renderFallbackSelect(agent, slot, selectedValue, primaryProvider) {
+        const options = ['<option value="">Не задано</option>'].concat(
+          runtimeState.providerOptions
+            .filter((option) => option !== primaryProvider)
+            .map((option) => `<option value="${option}" ${option === selectedValue ? "selected" : ""}>${slot}. ${option}</option>`)
+        );
+        return `<label class="field"><span class="muted">Fallback ${slot}</span><select data-agent-fallback-slot="${agent}" data-slot="${slot}">${options.join("")}</select></label>`;
+      }
+      function activate(viewId) {
+        document.querySelectorAll(".view").forEach((view) => view.classList.toggle("active", view.id === viewId));
+        document.querySelectorAll(".nav-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.view === viewId));
+        document.getElementById("pageTitle").textContent = titles[viewId];
+      }
+      async function load() {
+        const [overview, providers, agents, traces, quality, costs, llmMetrics, runtimeConfig, costsByAgent, costsByUser, charts, feedback] = await Promise.all([
+          getJson("/api/v1/ops/overview"),
+          getJson("/api/v1/ops/providers/status"),
+          getJson("/api/v1/ops/agents/metrics"),
+          getJson("/api/v1/ops/traces"),
+          getJson("/api/v1/ops/quality/metrics"),
+          getJson("/api/v1/ops/costs/by-user"),
+          getJson("/api/v1/ops/llm/metrics"),
+          getJson("/api/v1/ops/runtime-config"),
+          getJson("/api/v1/ops/costs/by-agent"),
+          getJson("/api/v1/ops/costs/by-user/detail"),
+          getJson("/api/v1/ops/charts"),
+          getJson("/api/v1/ops/feedback")
+        ]);
+        runtimeState.providerOptions = runtimeConfig.provider_options || [];
+        runtimeState.providers = runtimeConfig.providers || [];
+        runtimeState.agents = runtimeConfig.agents || [];
+        document.getElementById("providersCount").textContent = `Активных провайдеров: ${overview.active_providers}`;
+        document.getElementById("metrics").innerHTML = [
+          [withHint("Всего запросов", "totalRequests"), overview.total_requests],
+          [withHint("Завершённых", "completedRequests"), overview.completed_requests],
+          [withHint("Средний score", "avgScore"), overview.avg_score],
+          [withHint("Доля recommend", "recommendShare"), `${Math.round(overview.recommend_share * 100)}%`],
+          [withHint("Средняя latency", "avgLatency"), `${Math.round(overview.avg_latency_ms)} мс`],
+          [withHint("Суммарная стоимость", "totalCost"), formatCost(overview.total_cost_usd, overview.active_providers)]
+        ].map(([label, value]) => `<article class="metric-card"><span>${label}</span><strong>${value}</strong></article>`).join("");
+        document.getElementById("llmMetrics").innerHTML = [
+          [withHint("Средние total tokens", "totalTokens"), Math.round(llmMetrics.avg_total_tokens || 0)],
+          [withHint("Latency генерации", "generationLatency"), `${Math.round(llmMetrics.avg_generation_latency_ms || 0)} мс`],
+          [withHint("Retry rate", "retryRate"), `${Math.round((llmMetrics.retry_rate || 0) * 100)}%`],
+          [withHint("Среднее число retries", "avgRetryCount"), llmMetrics.avg_retry_count || 0],
+          [withHint("LLM-вызовов в среднем", "providerCalls"), llmMetrics.provider_calls_avg || 0],
+          [withHint("Live-вызовов провайдера", "liveProviderCalls"), llmMetrics.live_provider_calls_avg || 0],
+          [withHint("Среднее число tool calls", "toolCalls"), llmMetrics.tool_calls_avg || 0],
+          [withHint("Tool error rate", "toolErrorRate"), `${Math.round((llmMetrics.tool_error_rate || 0) * 100)}%`],
+          [withHint("Fallback rate", "fallbackRate"), `${Math.round((llmMetrics.fallback_rate || 0) * 100)}%`],
+          [withHint("Completion rate", "completionRate"), `${Math.round((llmMetrics.completion_rate || 0) * 100)}%`]
+        ].map(([label, value]) => `<article class="metric-card"><span>${label}</span><strong>${value}</strong></article>`).join("");
+        document.getElementById("providers").innerHTML = providers.map((provider) => `
+          <article class="provider">
+            <div class="provider-head"><strong>${provider.provider}</strong><span class="health ${provider.healthy ? "ok" : "bad"}">${provider.healthy ? "доступен" : "недоступен"}</span></div>
+            <p class="muted" style="margin-top:6px">${provider.detail}</p>
+            <p class="muted" style="margin-top:6px">Режим: ${provider.mode === "mock" ? "mock" : provider.mode}</p>
+            <p class="muted" style="margin-top:6px">Модель: ${provider.model || "не указана"}</p>
+            <p class="muted" style="margin-top:6px">Retries: ${provider.retries || 0} · Last latency: ${Math.round(provider.last_latency_ms || 0)} мс</p>
+          </article>
+        `).join("");
+        document.getElementById("providerConfig").innerHTML = runtimeState.providers.map((item) => `
+          <div class="config-card">
+            <div class="row"><strong>${item.provider}</strong><label><input type="checkbox" data-provider-enabled="${item.provider}" ${item.enabled ? "checked" : ""}> включён</label></div>
+            <label class="field"><span class="muted">Тип провайдера</span><select data-provider-kind="${item.provider}">${renderProviderOptions(item.provider)}</select></label>
+            <label class="field"><span class="muted">Модель</span><input data-provider-model="${item.provider}" value="${item.model || ""}" placeholder="Введите модель"></label>
+            <label class="field"><span class="muted">Base URL</span><input data-provider-base-url="${item.provider}" value="${item.base_url || ""}" placeholder="https://..."></label>
+            <label class="field"><span class="muted">API key</span><input data-provider-api-key="${item.provider}" value="${item.api_key || ""}" placeholder="sk-..."></label>
+          </div>
+        `).join("");
+        document.getElementById("agentRuntimeConfig").innerHTML = runtimeState.agents.map((item) => `
+          <div class="config-card">
+            <div class="row"><strong>${item.agent}</strong><span class="badge ok">${item.provider}</span></div>
+            <label class="field"><span class="muted">Основной провайдер</span><select data-agent-provider="${item.agent}">${renderProviderOptions(item.provider)}</select></label>
+            ${renderFallbackSelect(item.agent, 1, (item.fallback_order || [])[0] || "", item.provider)}
+            ${renderFallbackSelect(item.agent, 2, (item.fallback_order || [])[1] || "", item.provider)}
+            ${renderFallbackSelect(item.agent, 3, (item.fallback_order || [])[2] || "", item.provider)}
+            <label class="field"><span class="muted">Model override</span><input data-agent-model="${item.agent}" value="${item.model || ""}" placeholder="gpt-5.2-mini"></label>
+          </div>
+        `).join("");
+        document.getElementById("agents").innerHTML = agents.map((item) => `
+          <tr><td>${item.agent}</td><td>${Math.round(item.success_rate * 100)}%</td><td>${Math.round(item.avg_latency_ms)} мс</td><td>${item.completed}</td><td>${item.error_count}</td></tr>
+        `).join("");
+        document.getElementById("qualityCards").innerHTML = `
+          <article class="metric-card"><span>Анализов в выборке</span><strong>${quality.count}</strong></article>
+          <article class="metric-card"><span>Средняя уверенность</span><strong>${Math.round((quality.avg_confidence || 0) * 100)}%</strong></article>
+          <article class="metric-card"><span>Retry rate</span><strong>${Math.round((llmMetrics.retry_rate || 0) * 100)}%</strong></article>
+          <article class="metric-card"><span>Fallback rate</span><strong>${Math.round((llmMetrics.fallback_rate || 0) * 100)}%</strong></article>
+          <article class="metric-card"><span>Completion rate</span><strong>${Math.round((llmMetrics.completion_rate || 0) * 100)}%</strong></article>
+          <article class="metric-card"><span>Вердикты</span><strong>${quality.verdict_distribution.recommend}/${quality.verdict_distribution.acceptable}/${quality.verdict_distribution.avoid}</strong></article>
+        `;
+        document.getElementById("costs").innerHTML = costs.map((item) => `
+          <tr><td>${item.label === "Explainability provider" ? "Провайдер объяснений" : "Гео / эвристические вычисления"}</td><td>$${item.amount_usd.toFixed(4)}</td><td>${Math.round(item.share * 100)}%</td></tr>
+        `).join("");
+        document.getElementById("costsByAgent").innerHTML = costsByAgent.map((item) => `
+          <tr><td>${item.agent}</td><td>$${item.amount_usd.toFixed(4)}</td><td>${Math.round(item.share * 100)}%</td></tr>
+        `).join("");
+        document.getElementById("costsByUser").innerHTML = costsByUser.map((item) => `
+          <tr><td>${item.user}</td><td>$${item.amount_usd.toFixed(4)}</td><td>${Math.round(item.share * 100)}%</td></tr>
+        `).join("");
+        document.getElementById("traces").innerHTML = traces.map((trace) => `
+          <article class="trace">
+            <div class="trace-head"><strong>${trace.request_id}</strong><span class="badge ${trace.verdict === "recommend" ? "ok" : trace.verdict === "avoid" ? "bad" : "warn"}">${trace.verdict || "pending"}</span></div>
+            <p class="muted" style="margin-top:6px">${trace.city} · ${trace.business_type} · ${trace.duration_ms || 0} мс · $${(trace.total_cost_usd || 0).toFixed(4)} · ${trace.model || "model n/a"}</p>
+            <p class="muted" style="margin-top:6px">${trace.reasoning || "Объяснение ещё не готово."}</p>
+            <p style="margin:8px 0 0"><a href="${trace.log_url}" target="_blank" rel="noreferrer">Скачать trace log</a></p>
+          </article>
+        `).join("");
+        document.getElementById("feedbackList").innerHTML = feedback.length ? feedback.map((item) => `
+          <article class="trace">
+            <div class="trace-head"><strong>${item.username || "anonymous"}</strong><span class="badge ok">${item.rating}/5</span></div>
+            <p class="muted" style="margin-top:6px">${new Date(item.created_at).toLocaleString("ru-RU")} · request ${item.request_id || "n/a"}</p>
+            <p class="muted" style="margin-top:6px">${item.message}</p>
+          </article>
+        `).join("") : '<p class="muted">Пока нет сообщений обратной связи.</p>';
+        drawChart("loadChart", charts.labels, [{ values: charts.load, color: "#5ba2ff", label: "requests" }]);
+        drawChart("costChart", charts.labels, [{ values: charts.cost, color: "#28c177", label: "cost" }]);
+        drawChart("latencyChart", charts.labels, [
+          { values: charts.latency_p50 || [], color: "#5ba2ff", label: "p50" },
+          { values: charts.latency_p95 || [], color: "#efbd49", label: "p95" },
+          { values: charts.latency_p99 || [], color: "#f05d5e", label: "p99" }
+        ]);
+      }
+      function buildRuntimePayload() {
+        const providerCards = [...document.querySelectorAll("[data-provider-model]")].map((input) => input.dataset.providerModel);
+        const uniqueProviders = [...new Set(providerCards)];
+        return {
+          providers: uniqueProviders.map((provider) => ({
+            provider: document.querySelector(`[data-provider-kind="${provider}"]`)?.value || provider,
+            enabled: document.querySelector(`[data-provider-enabled="${provider}"]`).checked,
+            model: document.querySelector(`[data-provider-model="${provider}"]`).value.trim(),
+            base_url: document.querySelector(`[data-provider-base-url="${provider}"]`).value.trim(),
+            api_key: document.querySelector(`[data-provider-api-key="${provider}"]`).value.trim()
+          })),
+          agents: [...document.querySelectorAll("[data-agent-provider]")].map((input) => ({
+            agent: input.dataset.agentProvider,
+            provider: input.value.trim(),
+            fallback_order: [1, 2, 3]
+              .map((slot) => document.querySelector(`[data-agent-fallback-slot="${input.dataset.agentProvider}"][data-slot="${slot}"]`)?.value?.trim() || "")
+              .filter((value, index, array) => value && value !== input.value && array.indexOf(value) === index),
+            model: document.querySelector(`[data-agent-model="${input.dataset.agentProvider}"]`).value.trim()
+          }))
+        };
+      }
+      async function saveRuntimeConfig() {
+        const payload = buildRuntimePayload();
+        await postJson("/api/v1/ops/runtime-config", payload);
+        await load();
+      }
+      async function saveAgentRuntimeConfig() {
+        const payload = buildRuntimePayload();
+        await postJson("/api/v1/ops/runtime-config", payload);
+        await load();
+      }
+      function drawChart(targetId, labels, series) {
+        const svg = document.getElementById(targetId);
+        if (!svg) return;
+        const max = Math.max(...series.flatMap((item) => item.values || []), 1);
+        const stepX = labels.length > 1 ? 560 / (labels.length - 1) : 560;
+        const yTicks = [0, Math.round(max * 0.33), Math.round(max * 0.66), Math.round(max)].filter((value, index, array) => array.indexOf(value) === index);
+        const axes = yTicks.map((tick) => {
+          const y = 190 - (tick / max) * 140;
+          return `<line x1="40" y1="${y}" x2="600" y2="${y}" stroke="#1d2330"></line><text x="34" y="${y + 4}" fill="#97a1bc" font-size="10" text-anchor="end">${tick}</text>`;
+        }).join("");
+        const labelsMarkup = labels.map((label, index) => {
+          const x = 40 + index * stepX;
+          return `<text x="${x}" y="215" fill="#97a1bc" font-size="10" text-anchor="middle">${label || ""}</text>`;
+        }).join("");
+        const seriesMarkup = series.map((item) => {
+          const points = (item.values || []).map((value, index) => {
+            const x = 40 + index * stepX;
+            const y = 190 - (value / max) * 140;
+            return `${x},${y}`;
+          }).join(" ");
+          const circles = (item.values || []).map((value, index) => {
+            const x = 40 + index * stepX;
+            const y = 190 - (value / max) * 140;
+            return `<circle cx="${x}" cy="${y}" r="3.5" fill="${item.color}"></circle>`;
+          }).join("");
+          return `<polyline fill="none" stroke="${item.color}" stroke-width="3" points="${points}"></polyline>${circles}`;
+        }).join("");
+        svg.innerHTML = `<line x1="40" y1="190" x2="600" y2="190" stroke="#2a3040"></line><line x1="40" y1="40" x2="40" y2="190" stroke="#2a3040"></line>${axes}${seriesMarkup}${labelsMarkup}`;
+      }
+      function addProviderCard() {
+        const container = document.getElementById("providerConfig");
+        const providerName = `custom-${Date.now()}`;
+        container.insertAdjacentHTML("beforeend", `
+          <div class="config-card">
+            <div class="row"><strong>Новый провайдер</strong><label><input type="checkbox" data-provider-enabled="${providerName}"> включён</label></div>
+            <label class="field"><span class="muted">Тип провайдера</span><select data-provider-kind="${providerName}">${renderProviderOptions("ollama")}</select></label>
+            <label class="field"><span class="muted">Модель</span><input data-provider-model="${providerName}" value="" placeholder="Введите модель"></label>
+            <label class="field"><span class="muted">Base URL</span><input data-provider-base-url="${providerName}" value="" placeholder="https://..."></label>
+            <label class="field"><span class="muted">API key</span><input data-provider-api-key="${providerName}" value="" placeholder="sk-..."></label>
+          </div>
+        `);
+      }
+      document.querySelectorAll(".nav-btn").forEach((btn) => btn.addEventListener("click", () => activate(btn.dataset.view)));
+      document.getElementById("saveRuntimeBtn").addEventListener("click", saveRuntimeConfig);
+      document.getElementById("saveAgentRuntimeBtn").addEventListener("click", saveAgentRuntimeConfig);
+      document.getElementById("addProviderBtn").addEventListener("click", addProviderCard);
+      load();
+      setInterval(load, 15000);
+    </script>
+  </body>
+</html>
