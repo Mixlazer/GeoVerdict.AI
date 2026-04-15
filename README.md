@@ -159,21 +159,4 @@ scripts/                # WSL start/stop
 - [Serving / Config Spec](docs/specs/serving-config.md)
 - [Observability / Evals Spec](docs/specs/observability-evals.md)
 
----
 
-## Подготовка к GitHub
-
-Перед публикацией выполните:
-
-```bash
-make release-clean
-make publish-check
-```
-
-Проверка делает три вещи:
-
-- убеждается, что в дереве нет файлов больше `100 MB`;
-- напоминает о локальных артефактах вроде `node_modules`, `.venv`, `dist`, `.next`, `*.db`;
-- проверяет, что в `.env.example` не подставлены реальные ключи.
-
-`make release-clean` перед этим удаляет локальные build/runtime-артефакты, которые не должны попадать в GitHub: `node_modules`, `.next`, `dist`, `.venv`, локальные БД и `runtime-config.json`.
