@@ -83,8 +83,8 @@ make local-up
 - GeoVerdict: `http://localhost:8000/app`
 - LLMOps: `http://localhost:8000/ops-ui`
 - Swagger: `http://localhost:8000/docs`
-- Prometheus: `http://localhost:9090`
-- Grafana: `http://localhost:3001`
+- Prometheus: `http://localhost:8000/prometheus`
+- Grafana: `http://localhost:8000/grafana`
   Логин по умолчанию: `admin / admin`
 
 ### 3. Остановка
@@ -101,8 +101,8 @@ make local-down
 
 ```bash
 curl http://127.0.0.1:8000/api/v1/health
-curl http://127.0.0.1:9090/-/healthy
-curl http://127.0.0.1:3001/api/health
+curl http://127.0.0.1:8000/prometheus
+curl http://127.0.0.1:8000/grafana
 ```
 
 ### Что должно работать
@@ -111,8 +111,8 @@ curl http://127.0.0.1:3001/api/health
 |---|---|---|
 | GeoVerdict UI | `http://localhost:8000/app` | Карта, выбор здания, анализ, история |
 | LLMOps UI | `http://localhost:8000/ops-ui` | Метрики, runtime, traces, feedback |
-| Prometheus | `http://localhost:9090/targets` | target для GeoVerdict в статусе `UP` |
-| Grafana | `http://localhost:3001` | dashboard `GeoVerdict Runtime` |
+| Prometheus | `http://localhost:8000/prometheus` | либо живой Prometheus, либо диагностическая страница |
+| Grafana | `http://localhost:8000/grafana` | либо живой Grafana, либо диагностическая страница |
 | Trace log | из вкладки `Трейсы` | JSON со step traces, score, llm metrics |
 
 ---
@@ -159,4 +159,21 @@ scripts/                # WSL start/stop
 - [Serving / Config Spec](docs/specs/serving-config.md)
 - [Observability / Evals Spec](docs/specs/observability-evals.md)
 
+---
 
+## Подготовка к GitHub
+
+Перед публикацией выполните:
+
+```bash
+make release-clean
+make publish-check
+```
+
+Проверка делает три вещи:
+
+- убеждается, что в дереве нет файлов больше `100 MB`;
+- напоминает о локальных артефактах вроде `node_modules`, `.venv`, `dist`, `.next`, `*.db`;
+- проверяет, что в `.env.example` не подставлены реальные ключи.
+
+`make release-clean` перед этим удаляет локальные build/runtime-артефакты, которые не должны попадать в GitHub: `node_modules`, `.next`, `dist`, `.venv`, локальные БД и `runtime-config.json`.

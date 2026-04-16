@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import re
 from datetime import datetime, timezone
 
 from langgraph.graph import END, START, StateGraph
@@ -22,6 +24,7 @@ from app.models.schemas import (
     AnalysisStepStatus,
     BuildingCandidate,
     BuildingInsight,
+    CandidateScoreSummary,
     Competitor,
     GeoContext,
     LocationScore,
@@ -70,6 +73,7 @@ async def run_analysis(
     selected_building_name: str | None = None,
     selected_building_address: str | None = None,
     selected_building_type: str | None = None,
+    candidate_buildings: list[BuildingCandidate] | None = None,
 ) -> AnalysisResult:
     started = datetime.now(timezone.utc)
     steps = default_steps()
@@ -131,6 +135,86 @@ async def run_analysis(
         )
         record_llm(agent, response, purpose)
         return response
+
+    async def refine_score_with_llm(
+        *,
+        heuristic_score: LocationScore,
+        heuristic_verdict: VerdictType,
+        geo_context: GeoContext,
+        building_insight: BuildingInsight,
+        street_insight: StreetInsight,
+        competitors: list[Competitor],
+        competition_level: str,
+        traffic: TrafficAssessment,
+        subject_label: str,
+        purpose: str,
+    ) -> tuple[LocationScore, VerdictType]:
+        response = await enrich_with_llm(
+            "analyst",
+            (
+                "Ты оцениваешь офлайн-локацию для ритейла в России. "
+                "Верни только JSON без markdown и пояснений. "
+                "Не выдумывай новые факты, опирайся только на вход. "
+                "Можно корректировать heuristic baseline умеренно, а не радикально. "
+                "Поля JSON: overall_score, pedestrian_flow_score, transport_access_score, "
+                "street_retail_score, visibility_score, infrastructure_score, accessibility_score, "
+                "confidence, key_strengths, key_risks, verdict."
+            ),
+            (
+                f"subject={subject_label}\n"
+                f"business_type={business_type}\n"
+                f"heuristic_baseline={json.dumps(heuristic_score.model_dump(mode='json'), ensure_ascii=False)}\n"
+                f"heuristic_verdict={heuristic_verdict.value}\n"
+                f"competition_level={competition_level}\n"
+                f"competitors={json.dumps([_competitor_label(item) for item in competitors[:6]], ensure_ascii=False)}\n"
+                f"traffic={json.dumps(traffic.model_dump(mode='json'), ensure_ascii=False)}\n"
+                f"street={json.dumps(street_insight.model_dump(mode='json'), ensure_ascii=False)}\n"
+                f"building={json.dumps(building_insight.model_dump(mode='json'), ensure_ascii=False)}\n"
+                f"geo={{\"street_type\": \"{geo_context.street_type}\", "
+                f"\"neighborhood_type\": {json.dumps(geo_context.neighborhood_type, ensure_ascii=False)}, "
+                f"\"district\": {json.dumps(geo_context.address.district, ensure_ascii=False)}, "
+                f"\"address\": {json.dumps(geo_context.address.display_name, ensure_ascii=False)}, "
+                f"\"transit_stops\": {len(geo_context.transit_stops)}, "
+                f"\"anchors\": {len(geo_context.anchor_pois)}, "
+                f"\"confidence_penalty\": {geo_context.confidence_penalty}}}\n"
+                "Верни строгий JSON."
+            ),
+            purpose,
+        )
+        payload = _extract_json_payload(response.content)
+        if not payload:
+            return heuristic_score, heuristic_verdict
+        merged = heuristic_score.model_dump(mode="json")
+        for field in (
+            "overall_score",
+            "pedestrian_flow_score",
+            "transport_access_score",
+            "street_retail_score",
+            "visibility_score",
+            "infrastructure_score",
+            "accessibility_score",
+            "confidence",
+            "key_strengths",
+            "key_risks",
+        ):
+            if field in payload:
+                merged[field] = payload[field]
+        try:
+            refined_score = LocationScore.model_validate(merged)
+        except Exception:
+            return heuristic_score, heuristic_verdict
+        verdict_raw = str(payload.get("verdict") or "").strip().lower()
+        if verdict_raw in {item.value for item in VerdictType}:
+            refined_verdict = VerdictType(verdict_raw)
+        else:
+            refined_verdict = (
+                VerdictType.recommend
+                if refined_score.overall_score >= 72
+                else VerdictType.acceptable
+                if refined_score.overall_score >= 54
+                else VerdictType.avoid
+            )
+        return refined_score, refined_verdict
 
     @traceable(name="geoverdict.geo_agent", run_type="chain")
     async def geo_node(state: AnalysisState) -> dict:
@@ -331,6 +415,18 @@ async def run_analysis(
                 street_insight=street_insight,
                 business_type=business_type,
             )
+            score, verdict = await refine_score_with_llm(
+                heuristic_score=score,
+                heuristic_verdict=verdict,
+                geo_context=geo_context,
+                building_insight=building_insight,
+                street_insight=street_insight,
+                competitors=competitors,
+                competition_level=competition_level,
+                traffic=traffic,
+                subject_label=selected_building_address or geo_context.address.display_name,
+                purpose="location-score",
+            )
             llm_summary = await enrich_with_llm(
                 "analyst",
                 "Сделай короткое бизнес-объяснение на русском языке.",
@@ -364,7 +460,7 @@ async def run_analysis(
         score = state["score"]
         await mark_step("optimizer", "running", "Сканируем соседние точки и сравниваем микрорасположение")
         with trace.span("optimizer-agent", input_data={"base_score": score.overall_score}):
-            optimization = await find_better_location(
+            optimization, candidate_scores = await find_better_location(
                 lat=lat,
                 lng=lng,
                 city=city,
@@ -376,9 +472,13 @@ async def run_analysis(
                 base_traffic=traffic,
                 scan_radius_m=comparison_radius_m,
                 selected_building_address=selected_building_address,
+                selected_building_name=selected_building_name,
+                selected_building_type=selected_building_type,
+                candidate_buildings=candidate_buildings or [],
+                score_refiner=refine_score_with_llm,
             )
             optimizer_provider = None
-            if optimization:
+            if optimization and not optimization.same_building:
                 optimizer_reason = await enrich_with_llm(
                     "optimizer",
                     "Сделай короткое и честное объяснение, почему соседняя точка лучше исходной.",
@@ -394,11 +494,17 @@ async def run_analysis(
         await mark_step(
             "optimizer",
             "done",
-            "Найдена более сильная точка" if optimization else "Надёжного улучшения в заданном радиусе не найдено",
+            (
+                "Текущее здание стало лучшим среди просчитанных кандидатов"
+                if optimization and optimization.same_building
+                else "Найдена более сильная точка"
+                if optimization
+                else "Надёжного улучшения в заданном радиусе не найдено"
+            ),
             provider=optimizer_provider,
             latency_ms=_latency_ms(optimizer_started),
         )
-        return {"optimization": optimization}
+        return {"optimization": optimization, "candidate_scores": candidate_scores}
 
     graph = StateGraph(AnalysisState)
     graph.add_node("geo", geo_node)
@@ -453,6 +559,7 @@ async def run_analysis(
         traffic=final_state["traffic"],
         street_insight=final_state["street_insight"],
         competitors=final_state["competitors"],
+        candidate_scores=final_state.get("candidate_scores", []),
         optimization=final_state.get("optimization"),
         reasoning=final_state["reasoning"],
         steps=steps,
@@ -647,8 +754,12 @@ async def find_better_location(
     base_traffic: TrafficAssessment,
     scan_radius_m: int = 500,
     selected_building_address: str | None = None,
-) -> OptimizationSuggestion | None:
-    nearby_buildings = await fetch_buildings(lat, lng, city, radius_m=max(120, scan_radius_m))
+    selected_building_name: str | None = None,
+    selected_building_type: str | None = None,
+    candidate_buildings: list[BuildingCandidate] | None = None,
+    score_refiner=None,
+) -> tuple[OptimizationSuggestion | None, list[CandidateScoreSummary]]:
+    nearby_buildings = candidate_buildings or await fetch_buildings(lat, lng, city, radius_m=max(120, scan_radius_m))
     candidates = [
         item
         for item in nearby_buildings
@@ -656,7 +767,35 @@ async def find_better_location(
         and (not selected_building_address or item.address.strip().lower() != selected_building_address.strip().lower())
     ][:12]
     if not candidates:
-        return None
+        selected_summary = CandidateScoreSummary(
+            osm_id="selected-building",
+            name=selected_building_name or (selected_building_address or "Выбранное здание"),
+            address=selected_building_address or "Адрес не указан",
+            building_type=selected_building_type or "Здание",
+            lat=lat,
+            lng=lng,
+            distance_m=0.0,
+            overall_score=base_score.overall_score,
+            pedestrian_flow_score=base_score.pedestrian_flow_score,
+            transport_access_score=base_score.transport_access_score,
+            street_retail_score=base_score.street_retail_score,
+            verdict=VerdictType.recommend if base_score.overall_score >= 72 else VerdictType.acceptable if base_score.overall_score >= 54 else VerdictType.avoid,
+            is_selected=True,
+            is_best=True,
+            reason="Просчитана только исходная точка",
+        )
+        return (
+            OptimizationSuggestion(
+                lat=lat,
+                lng=lng,
+                improvement_percent=0.0,
+                distance_meters=0.0,
+                reason="Текущее здание набрало максимальный score среди доступных для сравнения точек.",
+                address=selected_building_address,
+                same_building=True,
+            ),
+            [selected_summary],
+        )
 
     async def evaluate_candidate(candidate: BuildingCandidate) -> tuple[BuildingCandidate, LocationScore, TrafficAssessment, GeoContext, str]:
         geo_context = await build_geo_context(candidate.lat, candidate.lng, city, preferred_address=candidate.address)
@@ -680,6 +819,29 @@ async def find_better_location(
             street_insight=street_insight,
             business_type=business_type,
         )
+        if score_refiner is not None:
+            try:
+                score, _ = await asyncio.wait_for(
+                    score_refiner(
+                        heuristic_score=score,
+                        heuristic_verdict=VerdictType.recommend
+                        if score.overall_score >= 72
+                        else VerdictType.acceptable
+                        if score.overall_score >= 54
+                        else VerdictType.avoid,
+                        geo_context=geo_context,
+                        building_insight=building_insight,
+                        street_insight=street_insight,
+                        competitors=competitors,
+                        competition_level=competition_level,
+                        traffic=traffic,
+                        subject_label=candidate.address,
+                        purpose="candidate-score",
+                    ),
+                    timeout=4,
+                )
+            except Exception:
+                pass
         reason = _build_candidate_reason(
             base_score,
             score,
@@ -692,16 +854,69 @@ async def find_better_location(
         )
         return candidate, score, traffic, geo_context, reason
 
-    evaluated = await asyncio.gather(
-        *(asyncio.wait_for(evaluate_candidate(candidate), timeout=12) for candidate in candidates),
-        return_exceptions=True,
-    )
+    async def evaluate_candidate_safe(candidate: BuildingCandidate):
+        try:
+            return await asyncio.wait_for(evaluate_candidate(candidate), timeout=18)
+        except Exception:
+            fallback_score, fallback_traffic = _fast_candidate_score(candidate, base_score, base_traffic)
+            return (
+                candidate,
+                fallback_score,
+                fallback_traffic,
+                base_geo_context,
+                "Быстрая оценка кандидата без полного гео-обхода",
+            )
+
+    evaluated = await asyncio.gather(*(evaluate_candidate_safe(candidate) for candidate in candidates))
+    candidate_summaries: list[CandidateScoreSummary] = [
+        CandidateScoreSummary(
+            osm_id="selected-building",
+            name=selected_building_name or (selected_building_address or "Выбранное здание"),
+            address=selected_building_address or "Адрес не указан",
+            building_type=selected_building_type or "Здание",
+            lat=lat,
+            lng=lng,
+            distance_m=0.0,
+            overall_score=base_score.overall_score,
+            pedestrian_flow_score=base_score.pedestrian_flow_score,
+            transport_access_score=base_score.transport_access_score,
+            street_retail_score=base_score.street_retail_score,
+            verdict=VerdictType.recommend if base_score.overall_score >= 72 else VerdictType.acceptable if base_score.overall_score >= 54 else VerdictType.avoid,
+            is_selected=True,
+            is_best=False,
+            reason="Исходная выбранная точка",
+        )
+    ]
     best: OptimizationSuggestion | None = None
+    best_candidate_record: tuple[BuildingCandidate, CandidateScoreSummary] | None = None
+    best_overall_score = base_score.overall_score
+    best_summary_index = 0
     for item in evaluated:
-        if isinstance(item, Exception):
-            continue
         candidate, candidate_score, candidate_traffic, candidate_geo_context, reason = item
+        candidate_verdict = VerdictType.recommend if candidate_score.overall_score >= 72 else VerdictType.acceptable if candidate_score.overall_score >= 54 else VerdictType.avoid
+        candidate_summaries.append(
+            CandidateScoreSummary(
+                osm_id=candidate.osm_id,
+                name=candidate.name,
+                address=candidate.address,
+                building_type=candidate.building_type,
+                lat=candidate.lat,
+                lng=candidate.lng,
+                distance_m=candidate.distance_m,
+                overall_score=candidate_score.overall_score,
+                pedestrian_flow_score=candidate_score.pedestrian_flow_score,
+                transport_access_score=candidate_score.transport_access_score,
+                street_retail_score=candidate_score.street_retail_score,
+                verdict=candidate_verdict,
+                is_selected=False,
+                reason=reason,
+            )
+        )
         improvement = ((candidate_score.overall_score - base_score.overall_score) / max(base_score.overall_score, 1)) * 100
+        if candidate_score.overall_score > best_overall_score:
+            best_overall_score = candidate_score.overall_score
+            best_summary_index = len(candidate_summaries) - 1
+            best_candidate_record = (candidate, candidate_summaries[-1])
         candidate_has_frontage_edge = (
             candidate_geo_context.street_type in {"arterial", "mixed"} and base_geo_context.street_type == "local"
         ) or (
@@ -730,7 +945,35 @@ async def find_better_location(
         )
         if best is None or suggestion.improvement_percent > best.improvement_percent:
             best = suggestion
-    return best
+    if candidate_summaries:
+        candidate_summaries[best_summary_index].is_best = True
+    candidate_summaries = sorted(candidate_summaries, key=lambda item: item.overall_score, reverse=True)
+    if candidate_summaries and candidate_summaries[0].is_selected:
+        return (
+            OptimizationSuggestion(
+                lat=lat,
+                lng=lng,
+                improvement_percent=0.0,
+                distance_meters=0.0,
+                reason="Текущее здание набрало максимальный score среди всех просчитанных кандидатов.",
+                address=selected_building_address,
+                same_building=True,
+            ),
+            candidate_summaries,
+        )
+    if best is None and best_candidate_record is not None:
+        top_candidate, top_summary = best_candidate_record
+        improvement = ((top_summary.overall_score - base_score.overall_score) / max(base_score.overall_score, 1)) * 100
+        best = OptimizationSuggestion(
+            lat=top_candidate.lat,
+            lng=top_candidate.lng,
+            improvement_percent=round(improvement, 1),
+            distance_meters=round(top_candidate.distance_m, 1),
+            reason=top_summary.reason or "Эта точка набрала максимальный score среди просчитанных кандидатов.",
+            address=top_candidate.address,
+            same_building=False,
+        )
+    return best, candidate_summaries
 
 
 def _build_candidate_reason(
@@ -758,6 +1001,66 @@ def _build_candidate_reason(
     if not reasons:
         reasons.append("микропозиция выглядит устойчивее по совокупному скорингу")
     return ", ".join(reasons)
+
+
+def _fast_candidate_score(
+    candidate: BuildingCandidate,
+    base_score: LocationScore,
+    base_traffic: TrafficAssessment,
+) -> tuple[LocationScore, TrafficAssessment]:
+    building_type = (candidate.building_type or "").lower()
+    frontage_bonus = 0.0
+    if any(token in building_type for token in ("коммер", "торгов", "офис", "сервис")):
+        frontage_bonus += 2.5
+    if any(token in building_type for token in ("апартамент", "жил", "дом")):
+        frontage_bonus -= 1.0
+    distance_penalty = min(10.0, candidate.distance_m / 35)
+    overall = max(15.0, min(95.0, round(base_score.overall_score + frontage_bonus - distance_penalty, 1)))
+    pedestrian = max(1, min(10, round(base_traffic.pedestrian_flow_score + frontage_bonus * 0.2 - distance_penalty * 0.08)))
+    transport = max(1, min(10, round(base_traffic.transport_access_score + frontage_bonus * 0.15 - distance_penalty * 0.04)))
+    retail = max(1, min(10, round(base_traffic.street_retail_score + frontage_bonus * 0.2 - distance_penalty * 0.05)))
+    traffic = TrafficAssessment(
+        level="high" if pedestrian >= 8 else "medium" if pedestrian >= 5 else "low",
+        score=max(20.0, min(95.0, round(overall + 2.0, 1))),
+        pedestrian_flow_score=pedestrian,
+        transport_access_score=transport,
+        street_retail_score=retail,
+        transport_fit_explanation=base_traffic.transport_fit_explanation,
+        rationale="Быстрая оценка по расстоянию, типу здания и базовому профилю точки",
+        drivers=[f"быстрый fallback для кандидата {candidate.address}"],
+    )
+    score = LocationScore.model_validate(
+        {
+            **base_score.model_dump(mode="json"),
+            "overall_score": overall,
+            "pedestrian_flow_score": pedestrian,
+            "transport_access_score": transport,
+            "street_retail_score": retail,
+            "confidence": max(0.45, round(base_score.confidence - 0.12, 2)),
+            "key_strengths": [f"кандидат в {round(candidate.distance_m)} м от исходной точки", *base_score.key_strengths[:2]],
+            "key_risks": ["оценка построена по ускоренному контуру без полного гео-обхода", *base_score.key_risks[:1]],
+        }
+    )
+    return score, traffic
+
+
+def _extract_json_payload(content: str | None) -> dict | None:
+    if not content:
+        return None
+    text = content.strip()
+    candidates = [text]
+    fenced = re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", text, flags=re.S)
+    candidates.extend(fenced)
+    inline = re.findall(r"(\{.*\})", text, flags=re.S)
+    candidates.extend(inline[:1])
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate)
+        except Exception:
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+    return None
 
 
 def _competitor_label(item: Competitor) -> str:

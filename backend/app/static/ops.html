@@ -15,7 +15,7 @@
       .view{display:none}.view.active{display:block}table{width:100%;border-collapse:collapse}th,td{padding:12px;border-bottom:1px solid var(--stroke);text-align:left;vertical-align:top}th{color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.06em}.traces{display:grid;gap:12px}.muted{color:var(--muted);margin:0}.cards{grid-template-columns:repeat(3,minmax(0,1fr))}
       .config-card{display:grid;gap:10px}.field{display:grid;gap:6px}.field input,.field select{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--stroke);background:#10131b;color:var(--text)}.field select[multiple]{min-height:120px}.row{display:flex;gap:10px;align-items:center;justify-content:space-between}.save-btn,.add-btn{margin-top:14px;border:none;border-radius:14px;padding:12px 14px;background:rgba(91,162,255,.16);color:var(--text);cursor:pointer;font-weight:700}.add-btn{background:rgba(40,193,119,.16)}
       .metric-title{display:flex;gap:8px;align-items:center}.hint{position:relative;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;width:18px;height:18px;line-height:1;border-radius:50%;background:rgba(151,161,188,.18);color:var(--text);font-size:.75rem;font-weight:700;cursor:help;flex:0 0 18px;text-align:center}.hint:hover::after{content:attr(data-tip);position:absolute;left:24px;top:50%;transform:translateY(-50%);min-width:220px;max-width:280px;padding:10px 12px;border-radius:12px;background:#0d1017;border:1px solid var(--stroke);color:var(--text);font-size:.78rem;line-height:1.35;white-space:normal;z-index:20}
-      .chart{width:100%;height:240px;border-radius:18px;background:#11151d;padding:12px}.feedback-list,.external-links,.legend-list{display:grid;gap:12px}.external-links a{display:block;padding:10px 12px;border-radius:12px;background:rgba(91,162,255,.12);color:var(--text);text-decoration:none}.legend-list{margin-top:12px}
+      .chart{display:block;width:100%;height:240px;border-radius:18px;background:#11151d;overflow:hidden}.feedback-list,.external-links,.legend-list{display:grid;gap:12px}.external-links a{display:block;padding:10px 12px;border-radius:12px;background:rgba(91,162,255,.12);color:var(--text);text-decoration:none}.legend-list{margin-top:12px}
       @media (max-width:1000px){.layout{grid-template-columns:1fr}.metric-grid,.provider-grid,.cards{grid-template-columns:1fr}}
     </style>
   </head>
@@ -315,31 +315,42 @@
       function drawChart(targetId, labels, series) {
         const svg = document.getElementById(targetId);
         if (!svg) return;
-        const max = Math.max(...series.flatMap((item) => item.values || []), 1);
-        const stepX = labels.length > 1 ? 560 / (labels.length - 1) : 560;
+        svg.setAttribute("preserveAspectRatio", "none");
+        const normalizedSeries = (series || []).map((item) => ({
+          ...item,
+          values: (item.values || []).map((value) => Number(value || 0))
+        })).filter((item) => item.values.length);
+        if (!normalizedSeries.length || !labels.length) {
+          svg.innerHTML = `<rect x="0" y="0" width="640" height="240" fill="#11151d"></rect><text x="320" y="124" fill="#97a1bc" font-size="14" text-anchor="middle">Недостаточно данных для графика</text>`;
+          return;
+        }
+        const max = Math.max(...normalizedSeries.flatMap((item) => item.values || []), 1);
+        const chartWidth = 540;
+        const chartHeight = 140;
+        const stepX = labels.length > 1 ? chartWidth / (labels.length - 1) : chartWidth;
         const yTicks = [0, Math.round(max * 0.33), Math.round(max * 0.66), Math.round(max)].filter((value, index, array) => array.indexOf(value) === index);
         const axes = yTicks.map((tick) => {
-          const y = 190 - (tick / max) * 140;
+          const y = 190 - (tick / max) * chartHeight;
           return `<line x1="40" y1="${y}" x2="600" y2="${y}" stroke="#1d2330"></line><text x="34" y="${y + 4}" fill="#97a1bc" font-size="10" text-anchor="end">${tick}</text>`;
         }).join("");
         const labelsMarkup = labels.map((label, index) => {
           const x = 40 + index * stepX;
           return `<text x="${x}" y="215" fill="#97a1bc" font-size="10" text-anchor="middle">${label || ""}</text>`;
         }).join("");
-        const seriesMarkup = series.map((item) => {
+        const seriesMarkup = normalizedSeries.map((item) => {
           const points = (item.values || []).map((value, index) => {
             const x = 40 + index * stepX;
-            const y = 190 - (value / max) * 140;
+            const y = 190 - (value / max) * chartHeight;
             return `${x},${y}`;
           }).join(" ");
           const circles = (item.values || []).map((value, index) => {
             const x = 40 + index * stepX;
-            const y = 190 - (value / max) * 140;
+            const y = 190 - (value / max) * chartHeight;
             return `<circle cx="${x}" cy="${y}" r="3.5" fill="${item.color}"></circle>`;
           }).join("");
           return `<polyline fill="none" stroke="${item.color}" stroke-width="3" points="${points}"></polyline>${circles}`;
         }).join("");
-        svg.innerHTML = `<line x1="40" y1="190" x2="600" y2="190" stroke="#2a3040"></line><line x1="40" y1="40" x2="40" y2="190" stroke="#2a3040"></line>${axes}${seriesMarkup}${labelsMarkup}`;
+        svg.innerHTML = `<rect x="0" y="0" width="640" height="240" fill="#11151d"></rect><line x1="40" y1="190" x2="600" y2="190" stroke="#2a3040"></line><line x1="40" y1="40" x2="40" y2="190" stroke="#2a3040"></line>${axes}${seriesMarkup}${labelsMarkup}`;
       }
       function addProviderCard() {
         const container = document.getElementById("providerConfig");

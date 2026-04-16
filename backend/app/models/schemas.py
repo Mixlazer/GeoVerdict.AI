@@ -130,6 +130,24 @@ class OptimizationSuggestion(BaseModel):
     same_building: bool = False
 
 
+class CandidateScoreSummary(BaseModel):
+    osm_id: str
+    name: str
+    address: str
+    building_type: str
+    lat: float
+    lng: float
+    distance_m: float
+    overall_score: float
+    pedestrian_flow_score: int
+    transport_access_score: int
+    street_retail_score: int
+    verdict: VerdictType
+    is_selected: bool = False
+    is_best: bool = False
+    reason: str | None = None
+
+
 class AnalysisStepStatus(BaseModel):
     key: str
     label: str
@@ -150,6 +168,7 @@ class AnalysisResult(BaseModel):
     traffic: TrafficAssessment | None = None
     street_insight: StreetInsight | None = None
     competitors: list[Competitor] = Field(default_factory=list)
+    candidate_scores: list[CandidateScoreSummary] = Field(default_factory=list)
     optimization: OptimizationSuggestion | None = None
     reasoning: str | None = None
     steps: list[AnalysisStepStatus] = Field(default_factory=list)
@@ -174,6 +193,7 @@ class AnalysisRequestCreate(BaseModel):
     selected_building_name: str | None = None
     selected_building_address: str | None = None
     selected_building_type: str | None = None
+    candidate_buildings: list[BuildingCandidate] = Field(default_factory=list)
 
 
 class AnalysisRequestRead(BaseModel):
@@ -340,6 +360,7 @@ class AnalysisState(TypedDict, total=False):
     competition_level: str
     score: LocationScore
     verdict: VerdictType
+    candidate_scores: list[CandidateScoreSummary]
     optimization: OptimizationSuggestion | None
     reasoning: str
     llm_metrics: dict

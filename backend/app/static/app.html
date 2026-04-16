@@ -163,6 +163,7 @@
         user: null,
         buildingCandidates: [],
         selectedBuilding: null,
+        lastAnalysisResult: null,
         clickedAddress: "",
         lastClick: null,
         map: null,
@@ -378,6 +379,15 @@
         if (building.levels) bits.push(`этажей: ${building.levels}`);
         return bits.join(" · ");
       }
+      function candidateScoreMap() {
+        const map = new Map();
+        const scores = (((state.lastAnalysisResult || {}).candidate_scores) || []);
+        scores.forEach((item) => {
+          map.set(item.osm_id, item);
+          if (item.address) map.set(item.address, item);
+        });
+        return map;
+      }
       function renderBuildingSummary() {
         if (!state.selectedBuilding) {
           buildingSummary.innerHTML = `
@@ -420,11 +430,13 @@
           buildingList.innerHTML = '<p class="building-empty">Здания рядом не найдены. Попробуйте кликнуть чуть ближе к уличной застройке.</p>';
           return;
         }
+        const scoreMap = candidateScoreMap();
         buildingList.innerHTML = state.buildingCandidates.map((building) => `
           <button class="building-btn ${state.selectedBuilding && state.selectedBuilding.osm_id === building.osm_id ? "active" : ""}" data-building-id="${building.osm_id}" ${state.isAnalyzing ? "disabled" : ""}>
             <strong>${buildingTitle(building)}</strong>
             <small>${buildingMeta(building)}</small>
             <small>${Math.round(building.distance_m)} м · ${building.lat.toFixed(6)}, ${building.lng.toFixed(6)}</small>
+            ${scoreMap.get(building.osm_id) || scoreMap.get(building.address) ? `<small><strong>Оценка: ${Math.round((scoreMap.get(building.osm_id) || scoreMap.get(building.address)).overall_score)}</strong> · поток ${(scoreMap.get(building.osm_id) || scoreMap.get(building.address)).pedestrian_flow_score}/10 · транспорт ${(scoreMap.get(building.osm_id) || scoreMap.get(building.address)).transport_access_score}/10${(scoreMap.get(building.osm_id) || scoreMap.get(building.address)).is_best ? " · лучший кандидат" : ""}</small>` : ""}
           </button>
         `).join("");
         buildingList.querySelectorAll("[data-building-id]").forEach((button) => {
@@ -495,24 +507,19 @@
           optimizationCard.style.display = "block";
           optimizationCard.innerHTML = `
             <p class="card-title">Лучшая точка рядом</p>
-            <strong>+${result.optimization.improvement_percent}% к потенциалу</strong>
-            <p class="result-text" style="margin-top:8px">${result.optimization.distance_meters} м · ${result.optimization.reason}</p>
+            <strong>${result.optimization.same_building ? "У вас лучшая точка среди просчитанных кандидатов" : `+${result.optimization.improvement_percent}% к потенциалу`}</strong>
+            <p class="result-text" style="margin-top:8px">${result.optimization.same_building ? result.optimization.reason : `${result.optimization.distance_meters} м · ${result.optimization.reason}`}</p>
             <p class="muted" style="margin-top:8px">Адрес: ${result.optimization.address || "адрес пока не найден"}</p>
           `;
-          state.optimizationMarker = L.circleMarker([result.optimization.lat, result.optimization.lng], {
-            radius: 10,
-            color: "#7d4dff",
-            weight: 3,
-            fillColor: "#7d4dff",
-            fillOpacity: .24
-          }).addTo(state.map).bindPopup(`<strong>Лучшая точка рядом</strong><br>${result.optimization.address || "Адрес уточняется"}<br><small>${result.optimization.reason}</small>`);
-        } else {
-          optimizationCard.style.display = "block";
-          optimizationCard.innerHTML = `
-            <p class="card-title">Лучшая точка рядом</p>
-            <strong>Надёжного улучшения в выбранном радиусе не найдено</strong>
-            <p class="muted" style="margin-top:8px">Сканирование не нашло соседнего здания с достаточно убедимым выигрышем по потоку, видимости и уличному фронту. Это не означает, что улучшения точно нет, а только что система не увидела его достаточно уверенно.</p>
-          `;
+          if (!result.optimization.same_building) {
+            state.optimizationMarker = L.circleMarker([result.optimization.lat, result.optimization.lng], {
+              radius: 10,
+              color: "#7d4dff",
+              weight: 3,
+              fillColor: "#7d4dff",
+              fillOpacity: .24
+            }).addTo(state.map).bindPopup(`<strong>Лучшая точка рядом</strong><br>${result.optimization.address || "Адрес уточняется"}<br><small>${result.optimization.reason}</small>`);
+          }
         }
       }
       function currentBusinessType() {
@@ -526,6 +533,7 @@
         }
         if (!state.selectedBuilding) return;
         state.isAnalyzing = true;
+        state.lastAnalysisResult = null;
         analyzeBtn.disabled = true;
         analyzeBtn.textContent = "Анализируем...";
         verdictCard.style.display = "none";
@@ -546,7 +554,8 @@
               selected_building_id: state.selectedBuilding.osm_id,
               selected_building_name: state.selectedBuilding.name,
               selected_building_address: state.selectedBuilding.address,
-              selected_building_type: state.selectedBuilding.building_type
+              selected_building_type: state.selectedBuilding.building_type,
+              candidate_buildings: state.buildingCandidates
             })
           });
           const timer = setInterval(async () => {
@@ -554,7 +563,10 @@
             renderSteps((current.result || {}).steps || []);
             if (current.status !== "processing") {
               clearInterval(timer);
-              if (current.result) renderVerdict(current.result, created.request_id);
+              if (current.result) {
+                state.lastAnalysisResult = current.result;
+                renderVerdict(current.result, created.request_id);
+              }
               state.isAnalyzing = false;
               analyzeBtn.disabled = false;
               analyzeBtn.textContent = "Анализировать выбранное здание";

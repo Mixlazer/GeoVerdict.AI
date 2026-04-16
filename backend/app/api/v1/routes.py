@@ -212,6 +212,7 @@ async def create_analysis(
             selected_building_name=payload.selected_building_name,
             selected_building_address=payload.selected_building_address,
             selected_building_type=payload.selected_building_type,
+            candidate_buildings=payload.candidate_buildings,
         )
     )
     return _record_to_read(record)
@@ -634,6 +635,7 @@ async def _process_analysis(
     selected_building_name: str | None = None,
     selected_building_address: str | None = None,
     selected_building_type: str | None = None,
+    candidate_buildings: list[BuildingCandidate] | None = None,
 ) -> None:
     started = datetime.now(timezone.utc)
 
@@ -661,6 +663,7 @@ async def _process_analysis(
             selected_building_name=selected_building_name,
             selected_building_address=selected_building_address,
             selected_building_type=selected_building_type,
+            candidate_buildings=candidate_buildings or [],
         )
         if result.optimization and not result.optimization.address:
             try:

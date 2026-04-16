@@ -41,8 +41,8 @@ nohup bash -lc "cd '$ROOT_DIR/llmops-dashboard' && exec npm run preview -- --hos
   >/tmp/geoverdict/llmops.log 2>&1 < /dev/null &
 echo $! >/tmp/geoverdict/llmops.pid
 
-echo "Backend:  http://127.0.0.1:8000"
-echo "Frontend: http://127.0.0.1:3000"
-echo "LLMOps:   http://127.0.0.1:5173"
-echo "Grafana:  http://127.0.0.1:3001"
-echo "Prometheus: http://127.0.0.1:9090"
+echo "GeoVerdict:  http://127.0.0.1:8000/app"
+echo "LLMOps:      http://127.0.0.1:8000/ops-ui"
+echo "Swagger API: http://127.0.0.1:8000/docs"
+echo "Grafana:     http://127.0.0.1:8000/grafana"
+echo "Prometheus:  http://127.0.0.1:8000/prometheus"
