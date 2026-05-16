@@ -169,28 +169,6 @@ scripts/                # WSL start/stop
 
 ## Скриншоты
 
-Для README подготовлены следующие скриншоты интерфейса:
-
-- главный экран с картой и выбором здания;
-- панель агентов и ход анализа;
-- итоговая карточка вердикта;
-- блок конкурентов и сильных/слабых сигналов;
-- карточка «Лучшая точка рядом».
-
-Рекомендуемые имена файлов в `README-assets/`:
-
-```text
-README-assets/
-  geoverdict-map.png
-  geoverdict-agents.png
-  geoverdict-verdict.png
-  geoverdict-competitors.png
-  geoverdict-best-point.png
-```
-
-После добавления файлов в репозиторий этот блок можно оставить в таком виде:
-
-```md
 ![Главный экран GeoVerdict](README-assets/geoverdict-map.png)
 
 ![Панель агентов](README-assets/geoverdict-agents.png)
@@ -200,5 +178,3 @@ README-assets/
 ![Конкуренты и сигналы](README-assets/geoverdict-competitors.png)
 
 ![Лучшая точка рядом](README-assets/geoverdict-best-point.png)
-```
-
