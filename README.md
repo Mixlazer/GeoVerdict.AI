@@ -101,6 +101,25 @@ make local-down
 
 ---
 
+## Проверка Python-кода
+
+Из корня репозитория в WSL/Linux:
+
+```bash
+python3 -m venv backend/.venv
+source backend/.venv/bin/activate
+python -m pip install -e './backend[dev]'
+make lint
+make lint-fix  # безопасные автоматические исправления
+```
+
+Ruff проверяет весь Python-код, включая backend и Vercel entrypoint в `api/`.
+Правила настроены в `ruff.toml`; проверка также запускается в GitHub Actions
+при push и pull request. Без Make можно выполнить `python -m ruff check .`
+или `python -m ruff check . --fix`.
+
+---
+
 ## Как быстро попробовать
 
 ### Smoke test

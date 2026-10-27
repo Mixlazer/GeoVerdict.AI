@@ -1,6 +1,5 @@
 from prometheus_client import Counter, Gauge, Histogram
 
-
 http_requests_total = Counter(
     "geoverdict_http_requests_total",
     "Total HTTP requests",

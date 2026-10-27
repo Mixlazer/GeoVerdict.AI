@@ -1,12 +1,11 @@
 from __future__ import annotations
 
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-import re
 from time import perf_counter
 
 import httpx
-
 
 PRICE_ESTIMATES_PER_1K: dict[str, tuple[float, float]] = {
     "openai": (0.0015, 0.0060),

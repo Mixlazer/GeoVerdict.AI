@@ -35,7 +35,6 @@ from app.models.schemas import (
 )
 from app.observability.tracing import AnalysisTraceCollector, traceable
 
-
 BUSINESS_COMPETITOR_KEYS: dict[str, set[str]] = {
     "pharmacy": {"pharmacy", "chemist"},
     "coffee": {"cafe", "coffee_shop", "bakery"},

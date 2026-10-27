@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from math import asin, cos, radians, sin, sqrt
 from random import Random
-import re
 from urllib.parse import quote
 
 import httpx
@@ -17,7 +17,6 @@ from app.models.schemas import (
     Poi,
     StreetInsight,
 )
-
 
 BUILDING_TYPE_LABELS = {
     "yes": "Здание",

@@ -17,11 +17,11 @@ from app.llm.router import LLMRouter
 from app.metrics.prometheus import analysis_duration_seconds, analysis_requests_total
 from app.models.schemas import (
     AgentMetric,
-    BuildingCandidate,
     AnalysisRequestCreate,
     AnalysisRequestRead,
     AnalysisResult,
     AnalysisStatus,
+    BuildingCandidate,
     CostBreakdownItem,
     FeedbackCreate,
     FeedbackRead,

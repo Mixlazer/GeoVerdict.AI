@@ -1,4 +1,6 @@
-.PHONY: up down backend frontend llmops release-clean publish-check
+.PHONY: up down backend frontend llmops release-clean publish-check lint lint-fix
+
+PYTHON ?= python3
 
 up:
 	docker compose up --build
@@ -26,3 +28,9 @@ release-clean:
 
 publish-check:
 	wsl.exe bash -lc 'cd /home/mixli/GeoVerdict.AI && bash scripts/github_preflight.sh'
+
+lint:
+	$(PYTHON) -m ruff check .
+
+lint-fix:
+	$(PYTHON) -m ruff check . --fix

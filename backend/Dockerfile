@@ -13,7 +13,7 @@ RUN pip install --no-cache-dir \
     httpx>=0.28.0 \
     prometheus-client>=0.22.0 \
     pydantic-settings>=2.6.0 \
-    sqlalchemy>=2.0.36 \
+    'sqlalchemy[asyncio]>=2.0.36' \
     uvicorn[standard]>=0.32.0
 
 COPY backend /app/backend
